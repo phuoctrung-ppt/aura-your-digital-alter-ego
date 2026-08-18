@@ -1,0 +1,121 @@
+# Aura local dev stack — Postgres + Ollama (+ optional API)
+# Default: API runs on the host via pnpm (fastest DX).
+# Optional: `make up-api` / compose profile `with-api` builds apps/api/Dockerfile.
+#
+# Public (host-reachable for local dev):
+#   - postgres :5432  (host-run API / tools)
+#   - ollama   :11434 (host-run API chat)
+#   - api      :3000  (only with profile with-api)
+# Internal-only later: workers, admin APIs, Redis (not in this file)
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml up -d
+#   docker compose -f docker/docker-compose.yml --profile with-api up -d --build
+#   make up / make up-api
+
+name: aura
+
+services:
+  # ── Postgres 16 (internal data plane; port published for host-run API) ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: aura-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aura}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aura}
+      POSTGRES_DB: ${POSTGRES_DB:-aura}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - aura_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - aura
+
+  # ── Ollama (local LLM; model pull is manual — see docker/README.md) ─────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aura-ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - aura_ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - aura
+
+  # ── Nest API (optional; profile with-api) ───────────────────────────────
+  # Prefer host `pnpm dev:api` for day-to-day. Use this when you want the
+  # full stack in containers (CI smoke, demos). Depends on Postgres healthy;
+  # Ollama is soft-dep for chat (API health stub does not require it).
+  api:
+    profiles: ["with-api"]
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: ${API_DOCKER_TARGET:-dev}
+    container_name: aura-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+      # Inside compose network use service hostnames, not localhost
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aura}:${POSTGRES_PASSWORD:-aura}@postgres:5432/${POSTGRES_DB:-aura}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-change-me-access}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-change-me-refresh}
+      AUDIO_STORAGE_PATH: ${AUDIO_STORAGE_PATH:-/tmp/aura-audio}
+      STT_PROVIDER: ${STT_PROVIDER:-}
+      WHISPER_BASE_URL: ${WHISPER_BASE_URL:-}
+      TTS_PROVIDER: ${TTS_PROVIDER:-}
+      TTS_BASE_URL: ${TTS_BASE_URL:-}
+      TTS_API_KEY: ${TTS_API_KEY:-}
+      LLM_FALLBACK_BASE_URL: ${LLM_FALLBACK_BASE_URL:-}
+      LLM_FALLBACK_API_KEY: ${LLM_FALLBACK_API_KEY:-}
+      LLM_FALLBACK_CHAT_MODEL: ${LLM_FALLBACK_CHAT_MODEL:-}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      # Dev target: mount source for hot reload (ignored when target=runner)
+      - ../apps/api/src:/app/apps/api/src:ro
+      - aura_audio_data:/tmp/aura-audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://127.0.0.1:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+    networks:
+      - aura
+
+volumes:
+  aura_postgres_data:
+  aura_ollama_data:
+  aura_audio_data:
+
+networks:
+  aura:
+    name: aura
+    driver: bridge

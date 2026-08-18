@@ -1,0 +1,24 @@
+# Keep Docker build context small (build from repo root)
+node_modules
+**/node_modules
+**/dist
+**/.expo
+**/.expo-shared
+**/coverage
+**/*.tsbuildinfo
+.git
+.github
+.claude
+.aisdlc
+.memory
+docs
+guide-gcp
+# Mobile: keep package.json for pnpm workspace resolution; drop the rest
+apps/mobile/**
+!apps/mobile/package.json
+**/.env
+**/.env.*
+!**/.env.example
+*.md
+!README.md
+.pnpm-store

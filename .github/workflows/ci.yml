@@ -1,0 +1,216 @@
+# Aura CI/CD — typecheck/lint/test + deploy API to GCP Cloud Run
+# Deploy: push to main only, after CI green, via Workload Identity Federation (no SA keys).
+name: ci
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GCP_REGION: asia-southeast1
+  # Artifact Registry repo + image (guide-gcp/05-bootstrap.md)
+  AR_REPOSITORY: aura
+  IMAGE_NAME: api
+  CLOUD_RUN_SERVICE: aura-api
+  RUNTIME_SA: aura-api-runtime@aura-digital-alter-ego.iam.gserviceaccount.com
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  api-and-contracts:
+    name: contracts + api
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # Match packageManager in root package.json
+          version: 11.9.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Align with Dockerfile / pnpm 11.9 (needs Node >= 22.13)
+          node-version: "22.x" 
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build contracts
+        run: pnpm --filter @aura/contracts build
+
+      - name: Typecheck contracts
+        run: pnpm --filter @aura/contracts typecheck
+
+      - name: Typecheck API
+        run: pnpm --filter @aura/api typecheck
+
+      - name: Lint API
+        run: pnpm --filter @aura/api lint
+
+      - name: Test API
+        run: pnpm --filter @aura/api test
+
+      - name: Typecheck mobile
+        run: pnpm --filter @aura/mobile typecheck
+
+  deploy-api:
+    name: deploy api (Cloud Run)
+    needs: [api-and-contracts]
+    # Production deploy path — protected branch is main (AGENTS.md §11)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write # required for Workload Identity Federation
+
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+          # Short-lived token for Artifact Registry docker push
+          token_format: access_token
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authorize Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Resolve image tags
+        id: image
+        run: |
+          set -euo pipefail
+          if [[ -z "${PROJECT_ID}" ]]; then
+            echo "Missing GitHub Actions variable GCP_PROJECT_ID" >&2
+            exit 1
+          fi
+          IMAGE_BASE="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPOSITORY}/${IMAGE_NAME}"
+          echo "image_sha=${IMAGE_BASE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=${IMAGE_BASE}:latest" >> "$GITHUB_OUTPUT"
+          echo "Deploying ${IMAGE_BASE}:${GITHUB_SHA}"
+
+      - name: Build and push API image
+        env:
+          IMAGE_SHA: ${{ steps.image.outputs.image_sha }}
+          IMAGE_LATEST: ${{ steps.image.outputs.image_latest }}
+        run: |
+          set -euo pipefail
+          # Build from monorepo root; production stage is `runner`
+          docker build \
+            -f apps/api/Dockerfile \
+            --target runner \
+            -t "${IMAGE_SHA}" \
+            -t "${IMAGE_LATEST}" \
+            .
+          docker push "${IMAGE_SHA}"
+          docker push "${IMAGE_LATEST}"
+
+      # One YAML file = full Cloud Run env (config + GitHub secrets).
+      # Prefer Secret Manager mounts later (guide-gcp/06-runtime-env.md).
+      - name: Write Cloud Run env file
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in DATABASE_URL JWT_ACCESS_SECRET JWT_REFRESH_SECRET; do
+            if [[ -z "${!key}" ]]; then
+              echo "Missing GitHub Actions secret: ${key}" >&2
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          def yq(value: str) -> str:
+              escaped = (
+                  value.replace("\\", "\\\\")
+                  .replace('"', '\\"')
+                  .replace("\n", "\\n")
+              )
+              return f'"{escaped}"'
+
+          env_map = {
+              "NODE_ENV": "production",
+              "AUDIO_STORAGE_PATH": "/tmp/aura-audio",
+              # Empty → Cloud Run uses Vertex / Speech / TTS (guide-gcp/08)
+              "OLLAMA_BASE_URL": "",
+              "CHAT_FALLBACK_PROVIDER": "vertex",
+              "VERTEX_LOCATION": "asia-southeast1",
+              "VERTEX_CHAT_MODEL": "gemini-2.0-flash-001",
+              "STT_PROVIDER": "gcp",
+              "STT_FALLBACK_PROVIDER": "gcp",
+              "GCP_SPEECH_LANGUAGE_CODE": "vi-VN",
+              "TTS_PROVIDER": "gcp",
+              "TTS_FALLBACK_PROVIDER": "gcp",
+              "GCP_TTS_LANGUAGE_CODE": "vi-VN",
+              "GCP_TTS_VOICE_NAME": "vi-VN-Neural2-A",
+              "DATABASE_URL": os.environ["DATABASE_URL"],
+              "JWT_ACCESS_SECRET": os.environ["JWT_ACCESS_SECRET"],
+              "JWT_REFRESH_SECRET": os.environ["JWT_REFRESH_SECRET"],
+          }
+          lines = [f"{k}: {yq(v)}" for k, v in env_map.items()]
+          # Must be workspace-relative for deploy-cloudrun env_vars_file
+          Path(os.environ["GITHUB_WORKSPACE"], ".ci-aura-run-env.yaml").write_text(
+              "\n".join(lines) + "\n"
+          )
+          PY
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.CLOUD_RUN_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          project_id: ${{ env.PROJECT_ID }}
+          image: ${{ steps.image.outputs.image_sha }}
+          env_vars_file: .ci-aura-run-env.yaml
+          flags: |-
+            --service-account=${{ env.RUNTIME_SA }}
+            --allow-unauthenticated
+            --cpu-throttling
+            --cpu=1
+            --memory=1Gi
+            --timeout=300
+            --min-instances=0
+            --max-instances=5
+            --port=3000
+
+      - name: Smoke /health
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          echo "Service URL: ${SERVICE_URL}"
+          curl -fsS --retry 8 --retry-all-errors --retry-delay 3 \
+            "${SERVICE_URL}/health"
+          echo

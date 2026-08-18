@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds / outputs
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+.ci-aura-run-env.yaml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+
+# Expo / React Native
+.expo/
+.expo-shared/
+web-build/
+android/
+ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+metro-cache/
+
+# Nest / API
+apps/api/dist/
+
+# Prisma (generated client is local; schema arrives M1)
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# Audio uploads (local dev storage — path from AUDIO_STORAGE_PATH)
+storage/
+uploads/
+audio/
+*.wav
+*.m4a
+*.mp3
+!docs/**/*.mp3
+
+# Test / tooling
+.turbo/
+.cache/
+tmp/
+temp/
+
+# Docker volumes (if bind-mounted locally)
+docker/data/
+
+# Agents
+AGENTS.md
+CLAUDE.md
+docs/*
+.claude/*
+.aisdlc
+.memory
+guide-gcp/*

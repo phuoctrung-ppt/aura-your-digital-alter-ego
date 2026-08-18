@@ -1,0 +1,33 @@
+{
+  "name": "@aura/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aura Expo React Native client (stub in M0)",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"(lint stub — ESLint lands with tooling follow-up)\""
+  },
+  "dependencies": {
+    "@aura/contracts": "workspace:*",
+    "expo": "~57.0.13",
+    "expo-status-bar": "~57.0.1",
+    "nativewind": "^4.2.6",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-reanimated": "^4.5.1",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-worklets": "0.10.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "babel-preset-expo": "^57.0.7",
+    "prettier-plugin-tailwindcss": "^0.5.14",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~5.9.2"
+  }
+}

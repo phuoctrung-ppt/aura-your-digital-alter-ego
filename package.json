@@ -1,0 +1,19 @@
+{
+  "name": "aura",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aura — VN-first voice mobile AI companion monorepo",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @aura/api start:dev",
+    "dev:mobile": "pnpm --filter @aura/mobile start",
+    "build:contracts": "pnpm --filter @aura/contracts build",
+    "build:api": "pnpm --filter @aura/api build",
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test"
+  }
+}

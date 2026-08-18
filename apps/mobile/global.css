@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Aura design tokens as CSS variables (NativeWind / web preview).
+ * Locked in docs/design/tokens.md — dark MVP default.
+ */
+:root,
+.dark {
+  --bg-app: #0b1220;
+  --bg-elevated: #141c2e;
+  --bg-muted: #1b2538;
+  --bg-overlay: rgba(11, 18, 32, 0.72);
+  --border: #243047;
+  --border-strong: #33415c;
+  --border-focus: #2dd4bf;
+
+  --text: #f5f7fa;
+  --text-secondary: #a8b3c7;
+  --text-muted: #6b7a94;
+  --text-on-accent: #042f2e;
+  --text-on-danger: #fef2f2;
+
+  --accent: #2dd4bf;
+  --accent-pressed: #14b8a6;
+  --accent-muted: rgba(45, 212, 191, 0.16);
+
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #38bdf8;
+  --neutral-status: #94a3b8;
+
+  --waveform-idle: #33415c;
+  --waveform-active: #2dd4bf;
+  --waveform-track: #1b2538;
+}
