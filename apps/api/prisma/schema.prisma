@@ -1,0 +1,177 @@
+// Aura API — Prisma schema (M1)
+//
+// Dual-DB via DATABASE_URL only (do not hard-code hosts):
+//   Local:      postgresql://aura:aura@localhost:${POSTGRES_PORT:-5432}/aura
+//               (compose publishes POSTGRES_PORT; use 5433 if 5432 is occupied)
+//   Production: Supabase Postgres connection string (direct or pooler)
+//               Settings → Database → URI — same provider = postgresql
+//
+// Rules:
+//   - Migrations only (`prisma migrate deploy` / `migrate dev`) — never rely on
+//     `db push` as the production path.
+//   - No tenant_id (multi-tenancy off). User-scoped data uses userId.
+//   - Prefer uuid + @default(uuid()). Keep schema plain PostgreSQL / Supabase-
+//     compatible; avoid exotic extensions for MVP.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums (align with packages/contracts) ───────────────────────────────────
+
+enum SessionStatus {
+  open
+  ended
+}
+
+enum TurnRole {
+  user
+  assistant
+}
+
+enum PersonaGroup {
+  interview
+  language
+}
+
+// ─── Entities (AGENTS.md §9) ────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  locale       String   @default("vi")
+  prefs        Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  memoryItems   MemoryItem[]
+  safetyEvents  SafetyEvent[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model Persona {
+  id                  String       @id @default(uuid())
+  slug                String       @unique
+  name                String
+  description         String
+  group               PersonaGroup
+  avatarAssetKey      String
+  systemPromptVersion String
+  /// Server-side only — never expose full text on public API contracts.
+  systemPromptText    String
+  tone                Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  sessions    Session[]
+  memoryItems MemoryItem[]
+
+  @@map("personas")
+}
+
+model Session {
+  id        String        @id @default(uuid())
+  userId    String
+  personaId String
+  status    SessionStatus @default(open)
+  locale    String        @default("vi")
+  startedAt DateTime      @default(now())
+  endedAt   DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persona      Persona       @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  turns        Turn[]
+  safetyEvents SafetyEvent[]
+
+  @@index([userId])
+  @@index([userId, startedAt])
+  @@map("sessions")
+}
+
+model Turn {
+  id             String   @id @default(uuid())
+  sessionId      String
+  role           TurnRole
+  transcript     String?
+  audioUri       String?
+  latencyMs      Int?
+  /// Matches contracts ProviderInfo shape: { stt, chat, tts }.
+  providers      Json?
+  correctionMeta Json?
+  /// Client idempotency key; unique per session when present.
+  clientTurnId   String?
+  createdAt      DateTime @default(now())
+
+  session     Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  memoryItems MemoryItem[]
+
+  @@unique([sessionId, clientTurnId])
+  @@index([sessionId])
+  @@map("turns")
+}
+
+model MemoryItem {
+  id           String   @id @default(uuid())
+  userId       String
+  personaId    String?
+  sourceTurnId String?
+  fact         String
+  salience     Float?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persona    Persona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  sourceTurn Turn?    @relation(fields: [sourceTurnId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, active])
+  @@map("memory_items")
+}
+
+model SafetyEvent {
+  id          String   @id @default(uuid())
+  userId      String
+  sessionId   String?
+  category    String
+  actionTaken String
+  createdAt   DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("safety_events")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  /// Store hash only — never the raw refresh token.
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy RefreshToken?  @relation("RefreshTokenRotation", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces   RefreshToken[] @relation("RefreshTokenRotation")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
