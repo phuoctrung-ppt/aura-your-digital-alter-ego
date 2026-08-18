@@ -5,6 +5,7 @@
   "description": "Aura Expo React Native client (stub in M0)",
   "main": "index.ts",
   "scripts": {
+    "dev": "expo start",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

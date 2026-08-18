@@ -11,13 +11,23 @@
     "start:prod": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(lint stub — ESLint lands with tooling follow-up)\"",
-    "test": "echo \"(tests land with qa-worker)\""
+    "test": "echo \"(tests land with qa-worker)\"",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:reset": "prisma migrate reset",
+    "prisma:seed": "prisma db seed",
+    "prisma:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "node --import tsx prisma/seed.ts"
   },
   "dependencies": {
     "@aura/contracts": "workspace:*",
     "@nestjs/common": "^11.0.12",
     "@nestjs/core": "^11.0.12",
     "@nestjs/platform-express": "^11.0.12",
+    "@prisma/client": "^6.14.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
@@ -26,6 +36,8 @@
     "@nestjs/schematics": "^11.0.3",
     "@types/express": "^5.0.1",
     "@types/node": "^22.13.10",
+    "prisma": "^6.14.0",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.2"
   }
 }
