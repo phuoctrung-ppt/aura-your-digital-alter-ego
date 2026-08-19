@@ -5,13 +5,21 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { resolve } from "path";
 import { AuthModule } from "./auth/auth.module";
 import { HealthController } from "./health.controller";
+import { PersonasModule } from "./personas/personas.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { SessionsModule } from "./sessions/sessions.module";
 import { UsersModule } from "./users/users.module";
 
 /**
  * Root application module.
- * Global: ConfigModule, named Throttler (`default` + `auth`), ThrottlerGuard.
- * Feature: Prisma, Users, Auth. HealthController is non-/v1 (see main.ts).
+ * Global: ConfigModule, named Throttler (`default` + `auth` + `sessionCreate`),
+ * ThrottlerGuard.
+ * Feature: Prisma, Users, Auth, Personas, Sessions.
+ * HealthController is non-/v1 (see main.ts).
+ *
+ * Throttle note: default ThrottlerGuard keys by IP. AGENTS.md §6 wants
+ * session-create 10/min **per user** — named limit is wired; true per-user
+ * getTracker is deferred (no Redis in MVP).
  */
 @Module({
   imports: [
@@ -23,7 +31,7 @@ import { UsersModule } from "./users/users.module";
         resolve(__dirname, "../.env"),
       ],
     }),
-    // Named throttles: default for general routes; auth for login/register/refresh.
+    // Named throttles: default; auth (login/register/refresh); sessionCreate.
     ThrottlerModule.forRoot([
       {
         name: "default",
@@ -35,10 +43,17 @@ import { UsersModule } from "./users/users.module";
         ttl: 60_000,
         limit: 10,
       },
+      {
+        name: "sessionCreate",
+        ttl: 60_000,
+        limit: 10,
+      },
     ]),
     PrismaModule,
     UsersModule,
     AuthModule,
+    PersonasModule,
+    SessionsModule,
   ],
   controllers: [HealthController],
   providers: [
