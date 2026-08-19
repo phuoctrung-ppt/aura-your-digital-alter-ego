@@ -54,6 +54,11 @@ jobs:
       - name: Typecheck contracts
         run: pnpm --filter @aura/contracts typecheck
 
+      # Fresh installs leave @prisma/client as a stub until generate runs.
+      # Must precede API typecheck/build (see docs/memory/gotchas.md).
+      - name: Generate Prisma client
+        run: pnpm --filter @aura/api prisma:generate
+
       - name: Typecheck API
         run: pnpm --filter @aura/api typecheck
 
