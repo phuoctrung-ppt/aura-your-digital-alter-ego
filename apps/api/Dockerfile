@@ -45,7 +45,10 @@ COPY tsconfig.base.json ./
 COPY packages/contracts ./packages/contracts
 COPY packages/config ./packages/config
 COPY apps/api ./apps/api
+# Fresh installs leave @prisma/client as a stub until generate runs.
+# Must precede API build (see docs/memory/gotchas.md).
 RUN pnpm --filter @aura/contracts build \
+  && pnpm --filter @aura/api prisma:generate \
   && pnpm --filter @aura/api build
 
 # pnpm v10+ deploy requires injected workspace packages OR --legacy.
@@ -63,8 +66,9 @@ COPY tsconfig.base.json ./
 COPY packages/contracts ./packages/contracts
 COPY packages/config ./packages/config
 COPY apps/api ./apps/api
-# Build contracts once so @aura/contracts resolves at start; nest --watch reloads API
-RUN pnpm --filter @aura/contracts build
+# Build contracts + generate Prisma client so @aura/api can compile under nest --watch
+RUN pnpm --filter @aura/contracts build \
+  && pnpm --filter @aura/api prisma:generate
 EXPOSE 3000
 WORKDIR /app
 CMD ["pnpm", "--filter", "@aura/api", "start:dev"]
