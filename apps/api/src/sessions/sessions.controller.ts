@@ -33,7 +33,7 @@ import { SessionsService } from "./sessions.service";
  * All routes protected — history is user-scoped (AGENTS.md §4 / §6).
  * Global prefix `v1` is applied in main.ts — routes here omit the version segment.
  *
- * Out of scope here: POST /sessions/:id/turns (later module).
+ * Out of scope here: POST /sessions/:id/turns (see TurnsModule / TurnsController).
  *
  * Rate limit: session create uses named throttle `sessionCreate` (10/min).
  * Default ThrottlerGuard tracks by **IP**, not userId — AGENTS.md §6 asks for
