@@ -40,10 +40,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       bundler: "metro",
       favicon: "./assets/favicon.png",
     },
-    plugins: [...(base.plugins ?? []), "expo-secure-store"],
+    plugins: [
+      ...(base.plugins ?? []),
+      "expo-router",
+      "expo-secure-store",
+      "expo-audio",
+    ],
+    experiments: {
+      ...(typeof base.experiments === "object" && base.experiments
+        ? base.experiments
+        : {}),
+      typedRoutes: true,
+    },
     extra: {
       ...(typeof base.extra === "object" && base.extra ? base.extra : {}),
       apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000",
+      router: {},
     },
   };
 };

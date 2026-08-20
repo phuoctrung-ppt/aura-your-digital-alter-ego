@@ -57,7 +57,7 @@ apps/api/prisma/*.db-journal
 # Audio uploads (local dev storage — path from AUDIO_STORAGE_PATH)
 storage/
 uploads/
-audio/
+/audio/
 *.wav
 *.m4a
 *.mp3

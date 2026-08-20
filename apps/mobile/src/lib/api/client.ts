@@ -148,7 +148,14 @@ export class ApiClient {
     const normalized = normalizePath(path);
     const headers = new Headers(init.headers);
 
-    if (!headers.has("Content-Type") && init.body) {
+    // FormData must keep the runtime multipart boundary — do not force JSON.
+    // RN FormData may not pass `instanceof FormData` across realms — also check tag.
+    const bodyIsFormData =
+      typeof FormData !== "undefined" &&
+      !!init.body &&
+      (init.body instanceof FormData ||
+        Object.prototype.toString.call(init.body) === "[object FormData]");
+    if (!headers.has("Content-Type") && init.body && !bodyIsFormData) {
       headers.set("Content-Type", "application/json");
     }
     if (!headers.has("Accept")) {
