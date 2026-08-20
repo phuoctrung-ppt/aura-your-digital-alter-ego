@@ -31,6 +31,14 @@ type SessionWithPersona = PrismaSession & {
   persona: Pick<Persona, "slug">;
 };
 
+/** Session + persona prompt fields for orchestrator (never expose prompt text on HTTP DTOs). */
+export type SessionOwnedWithPersona = PrismaSession & {
+  persona: Pick<
+    Persona,
+    "id" | "slug" | "systemPromptText" | "systemPromptVersion" | "name"
+  >;
+};
+
 /**
  * Sessions service — user-scoped session lifecycle (create / list / get / end).
  * Turns, memory, and AI orchestration are out of scope for M4.
@@ -168,6 +176,38 @@ export class SessionsService {
 
     this.logger.log(`session.end userId=${userId} sessionId=${row.id}`);
     return ok(this.toSessionDto(row));
+  }
+
+  /**
+   * Load a session owned by the user including persona system prompt fields.
+   * Used by turn orchestrator — HTTP DTOs must never include systemPromptText.
+   * Missing / other user → 404 SESSION_NOT_FOUND.
+   */
+  async findOwnedWithPersona(
+    userId: string,
+    id: string,
+  ): Promise<SessionOwnedWithPersona> {
+    const row = await this.prisma.session.findFirst({
+      where: { id, userId },
+      include: {
+        persona: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            systemPromptText: true,
+            systemPromptVersion: true,
+          },
+        },
+      },
+    });
+    if (!row) {
+      throw new NotFoundException({
+        code: ErrorCodes.SESSION_NOT_FOUND,
+        message: "Session not found",
+      });
+    }
+    return row;
   }
 
   private async findOwned(

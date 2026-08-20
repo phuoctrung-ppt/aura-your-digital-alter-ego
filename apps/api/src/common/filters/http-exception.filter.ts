@@ -86,6 +86,14 @@ function statusToDefaultCode(status: number): string {
       return ErrorCodes.RATE_LIMITED;
     case HttpStatus.BAD_REQUEST:
       return ErrorCodes.VALIDATION_ERROR;
+    case HttpStatus.PAYLOAD_TOO_LARGE:
+      return ErrorCodes.AUDIO_TOO_LARGE;
+    case HttpStatus.UNSUPPORTED_MEDIA_TYPE:
+      return ErrorCodes.AUDIO_UNSUPPORTED_MIME;
+    case HttpStatus.SERVICE_UNAVAILABLE:
+      return ErrorCodes.PROVIDER_UNAVAILABLE;
+    case HttpStatus.GATEWAY_TIMEOUT:
+      return ErrorCodes.TURN_TIMEOUT;
     case HttpStatus.NOT_IMPLEMENTED:
       return ErrorCodes.INTERNAL_ERROR;
     default:
