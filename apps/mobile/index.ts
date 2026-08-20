@@ -1,8 +1,5 @@
-import { registerRootComponent } from "expo";
-
-import App from "./App";
-
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately.
-registerRootComponent(App);
+/**
+ * @deprecated M7 — `package.json` main is `expo-router/entry`.
+ * This file remains for tooling that still resolves `./index`.
+ */
+import "expo-router/entry";
