@@ -1,10 +1,11 @@
 import { createAudioPlayer, type AudioPlayer } from "expo-audio";
-import { base64ToArrayBuffer } from "./audio-utils"; // Assuming we'll need this helper
+import { base64ToArrayBuffer } from "./audio-utils";
+import { setActivePlayer, setPlaying } from "./playback-registry";
 
 export interface ChunkPlayerListener {
   onPlaybackFinished?: () => void;
   onChunkStarted?: (seq: number) => void;
-  // RMS data for lip-sync can be hooked via the AudioPlayer's own status or a specific listener
+  onPlayingChange?: (playing: boolean) => void;
 }
 
 class ChunkPlayer {
@@ -12,21 +13,32 @@ class ChunkPlayer {
   private currentPlayer: AudioPlayer | null = null;
   private listeners: ChunkPlayerListener = {};
 
+  /**
+   * Replace Session-facing listeners.
+   * Playback registry stays independent so lip-sync is not clobbered.
+   */
   setListeners(listeners: ChunkPlayerListener) {
     this.listeners = listeners;
+  }
+
+  getCurrentPlayer(): AudioPlayer | null {
+    return this.currentPlayer;
   }
 
   /**
    * Add a new TTS chunk to the queue.
    * @param chunk The TTS chunk event from the server.
    */
-  async addChunk(chunk: { seq: number; payloadBase64: string; mime: string }) {
+  async addChunk(chunk: {
+    seq: number;
+    payloadBase64: string;
+    mime: string;
+  }) {
     const buffer = base64ToArrayBuffer(chunk.payloadBase64);
 
     // Create a player for this specific chunk.
     // In a real high-performance app, we'd use a single player and append to a buffer
     // but expo-audio's createAudioPlayer with a URI/Blob is the standard path.
-    // We use a blob URL for the buffer.
     const blob = new Blob([buffer], { type: chunk.mime });
     const uri = URL.createObjectURL(blob);
 
@@ -39,44 +51,75 @@ class ChunkPlayer {
     }
   }
 
-  private async playNext() {
+  private playNext() {
     if (this.queue.length === 0) {
       this.currentPlayer = null;
+      setActivePlayer(null, false);
+      this.listeners.onPlayingChange?.(false);
       this.listeners.onPlaybackFinished?.();
       return;
     }
 
     const { seq, player } = this.queue.shift()!;
     this.currentPlayer = player;
-
+    setActivePlayer(player, true);
+    setPlaying(true);
+    this.listeners.onPlayingChange?.(true);
     this.listeners.onChunkStarted?.(seq);
 
     const sub = player.addListener("playbackStatusUpdate", (status) => {
       if (status.didJustFinish) {
         sub.remove();
-        player.remove();
+        try {
+          player.remove();
+        } catch {
+          // ignore
+        }
         this.playNext();
       }
     });
 
     try {
       player.play();
-    } catch (e) {
-      console.error("Chunk playback error", e);
-      sub.remove();
-      player.remove();
+    } catch {
+      try {
+        sub.remove();
+      } catch {
+        // ignore
+      }
+      try {
+        player.remove();
+      } catch {
+        // ignore
+      }
       this.playNext();
     }
   }
 
   stop() {
     if (this.currentPlayer) {
-      this.currentPlayer.pause();
-      this.currentPlayer.remove();
+      try {
+        this.currentPlayer.pause();
+      } catch {
+        // ignore
+      }
+      try {
+        this.currentPlayer.remove();
+      } catch {
+        // ignore
+      }
     }
-    this.queue.forEach(item => item.player.remove());
+    this.queue.forEach((item) => {
+      try {
+        item.player.remove();
+      } catch {
+        // ignore
+      }
+    });
     this.queue = [];
     this.currentPlayer = null;
+    setActivePlayer(null, false);
+    this.listeners.onPlayingChange?.(false);
   }
 }
 
