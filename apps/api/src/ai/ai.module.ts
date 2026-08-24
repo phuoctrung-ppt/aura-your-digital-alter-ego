@@ -15,11 +15,14 @@ import { GcpTextToSpeechProvider } from "./providers/gcp-tts.provider";
 import { FakeChatProvider } from "./providers/fake-chat.provider";
 import { FakeSttProvider } from "./providers/fake-stt.provider";
 import { FakeTtsProvider } from "./providers/fake-tts.provider";
+import { FakeStreamingSttProvider } from "./providers/fake-streaming-stt.provider";
+import { GcpSpeechStreamingSttProvider } from "./providers/gcp-speech-streaming.stt";
 import {
   CHAT_PROVIDER,
   CHAT_PROVIDER_FALLBACK,
   STT_PROVIDER,
   STT_PROVIDER_FALLBACK,
+  STREAMING_STT_PROVIDER,
   TTS_PROVIDER,
   TTS_PROVIDER_FALLBACK,
 } from "./tokens";
@@ -55,6 +58,8 @@ function isFakeMode(config: ConfigService): boolean {
     FakeChatProvider,
     FakeSttProvider,
     FakeTtsProvider,
+    FakeStreamingSttProvider,
+    GcpSpeechStreamingSttProvider,
     {
       provide: CHAT_PROVIDER,
       inject: [ConfigService, FakeChatProvider, OllamaChatProvider],
@@ -173,6 +178,27 @@ function isFakeMode(config: ConfigService): boolean {
         return gcp;
       },
     },
+    {
+      provide: STREAMING_STT_PROVIDER,
+      inject: [
+        ConfigService,
+        FakeStreamingSttProvider,
+        GcpSpeechStreamingSttProvider,
+      ],
+      useFactory: (
+        config: ConfigService,
+        fake: FakeStreamingSttProvider,
+        gcpStream: GcpSpeechStreamingSttProvider,
+      ) => {
+        if (isFakeMode(config)) return fake;
+        const stt = (config.get<string>("STT_PROVIDER") ?? "")
+          .trim()
+          .toLowerCase();
+        if (stt === "fake") return fake;
+        // WS path prefers GCP streaming (SP-4); fake mode handled above.
+        return gcpStream;
+      },
+    },
     AiOrchestratorService,
   ],
   exports: [
@@ -184,16 +210,19 @@ function isFakeMode(config: ConfigService): boolean {
     STT_PROVIDER_FALLBACK,
     TTS_PROVIDER,
     TTS_PROVIDER_FALLBACK,
+    STREAMING_STT_PROVIDER,
     OllamaChatProvider,
     OpenAiCompatibleChatProvider,
     VertexChatProvider,
     WhisperSttProvider,
     GcpSpeechSttProvider,
+    GcpSpeechStreamingSttProvider,
     TtsProviderImpl,
     GcpTextToSpeechProvider,
     FakeChatProvider,
     FakeSttProvider,
     FakeTtsProvider,
+    FakeStreamingSttProvider,
   ],
 })
 export class AiModule {}

@@ -8,6 +8,8 @@ export { GcpTextToSpeechProvider } from "./gcp-tts.provider";
 export { FakeChatProvider } from "./fake-chat.provider";
 export { FakeSttProvider } from "./fake-stt.provider";
 export { FakeTtsProvider } from "./fake-tts.provider";
+export { FakeStreamingSttProvider } from "./fake-streaming-stt.provider";
+export { GcpSpeechStreamingSttProvider } from "./gcp-speech-streaming.stt";
 export {
   getGoogleAccessToken,
   resetGoogleAdcCacheForTests,

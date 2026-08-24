@@ -54,6 +54,51 @@ export type RunTurnInput = {
   audio?: TurnAudioUpload;
 };
 
+/**
+ * Shared post-STT finalize input for REST + WS (ADR-0005).
+ * When `userTranscript` is already known, STT is skipped.
+ */
+export type FinalizeVoiceTurnInput = {
+  userId: string;
+  sessionId: string;
+  /**
+   * Required on WS; optional on REST multipart.
+   * When set, enables idempotent replay of a prior finalized turn.
+   */
+  clientTurnId?: string | null;
+  clientLocale?: string;
+  userTranscript: string;
+  /** Optional uplink audio to persist on the user Turn row. */
+  userAudio?: {
+    bytes: Buffer;
+    mimeType: string;
+    originalname?: string;
+  };
+  /** Provider name recorded on Turn.providers.stt (e.g. fake-stt / gcp-stream). */
+  sttProviderName: string;
+  sttLatencyMs?: number;
+  /**
+   * Optional per-sentence/phrase TTS emitter for WS `tts.chunk`.
+   * When provided, each short sentence is synthesized and emitted;
+   * the concatenated last blob is still persisted for replay.
+   */
+  /**
+   * Fired after safety+chat produce assistant text, before TTS chunks.
+   * Lets WS emit `assistant.text` ahead of `tts.chunk` (contract happy-path).
+   */
+  onAssistantText?: (info: {
+    text: string;
+    safetyMode: SafetyMode;
+    safetyResources?: SafetyResource[];
+  }) => void | Promise<void>;
+  onTtsChunk?: (chunk: {
+    seq: number;
+    mime: string;
+    bytes: Buffer;
+    isLast: boolean;
+  }) => void | Promise<void>;
+};
+
 function isChatFallbackConfigured(provider: ChatProvider): boolean {
   if (provider.name === "fake-chat") return true;
   if (typeof provider.isConfigured === "function") {
@@ -113,8 +158,51 @@ export class AiOrchestratorService {
     }
   }
 
+  /**
+   * Shared finalize for WS (and any path with a known transcript).
+   * Skips STT; runs safety → chat → TTS (optionally chunked) → persist → memory.
+   * Idempotent on `clientTurnId` (same semantics as REST `runTurn`).
+   */
+  async finalizeVoiceTurn(
+    input: FinalizeVoiceTurnInput,
+  ): Promise<TurnResponse> {
+    const wallMs = TURN_REQUEST_TIMEOUT_MS;
+    try {
+      return await withTimeout(
+        this.finalizeVoiceTurnInner(input),
+        wallMs,
+        () => turnTimeout(),
+      );
+    } catch (err) {
+      if (err instanceof Error && "getStatus" in err) throw err;
+      this.logger.warn(
+        `finalizeVoiceTurn failed sessionId=${input.sessionId}: ${
+          err instanceof Error ? err.message : "unknown"
+        }`,
+      );
+      throw err;
+    }
+  }
+
+  /** Alias kept for plan/docs naming. */
+  async runTurnFromTranscript(
+    input: FinalizeVoiceTurnInput,
+  ): Promise<TurnResponse> {
+    return this.finalizeVoiceTurn(input);
+  }
+
+  /**
+   * Public idempotency lookup for WS `turn.start` / `turn.end` re-delivery.
+   * Returns prior TurnResponseData when this clientTurnId already finalized.
+   */
+  async findPriorTurnResponse(
+    sessionId: string,
+    clientTurnId: string,
+  ): Promise<TurnResponseData | null> {
+    return this.findIdempotentResponse(sessionId, clientTurnId);
+  }
+
   private async runTurnInner(input: RunTurnInput): Promise<TurnResponse> {
-    const started = Date.now();
     const { userId, sessionId, fields, audio } = input;
 
     // Idempotency: same sessionId + clientTurnId after success → prior response.
@@ -144,10 +232,6 @@ export class AiOrchestratorService {
       throw providerUnavailable("Audio missing in orchestrator");
     }
 
-    const userTurnId = randomUUID();
-    const assistantTurnId = randomUUID();
-    const userExt = extFromMime(audio.mimetype, audio.originalname);
-
     const audioBytes =
       audio.buffer && audio.buffer.length > 0
         ? audio.buffer
@@ -160,14 +244,6 @@ export class AiOrchestratorService {
       throw providerUnavailable("Empty audio buffer");
     }
 
-    const userAudioPath = await this.audioStorage.writeBytes(
-      sessionId,
-      userTurnId,
-      "user",
-      audioBytes,
-      userExt,
-    );
-
     // 1) STT (primary → GCP Speech fallback)
     const sttResult = await this.runSttWithFallback({
       audio: audioBytes,
@@ -175,7 +251,77 @@ export class AiOrchestratorService {
       locale: fields.clientLocale ?? session.locale,
       sessionId,
     });
-    const userTranscript = sttResult.transcript;
+
+    return this.finalizeVoiceTurnInner({
+      userId,
+      sessionId,
+      clientTurnId: fields.clientTurnId ?? null,
+      clientLocale: fields.clientLocale,
+      userTranscript: sttResult.transcript,
+      userAudio: {
+        bytes: audioBytes,
+        mimeType: audio.mimetype,
+        originalname: audio.originalname,
+      },
+      sttProviderName: sttResult.providerName,
+      sttLatencyMs: sttResult.latencyMs,
+      // REST path: no chunk emitter — single blob TTS as before.
+    });
+  }
+
+  private async finalizeVoiceTurnInner(
+    input: FinalizeVoiceTurnInput,
+  ): Promise<TurnResponse> {
+    const started = Date.now();
+    const {
+      userId,
+      sessionId,
+      clientLocale,
+      userTranscript,
+      userAudio,
+      sttProviderName,
+      sttLatencyMs,
+      onAssistantText,
+      onTtsChunk,
+    } = input;
+    const clientTurnId = input.clientTurnId ?? null;
+
+    // Idempotency (WS re-emit / REST retry) — only when clientTurnId present.
+    if (clientTurnId) {
+      const prior = await this.findIdempotentResponse(sessionId, clientTurnId);
+      if (prior) {
+        this.logger.log(
+          `finalizeVoiceTurn idempotent hit sessionId=${sessionId} clientTurnId=${clientTurnId}`,
+        );
+        return ok(prior);
+      }
+    }
+
+    const session = await this.sessions.findOwnedWithPersona(userId, sessionId);
+    if (session.status === "ended") {
+      throw new ConflictException({
+        code: ErrorCodes.SESSION_CLOSED,
+        message: "Session is closed",
+      });
+    }
+
+    const userTurnId = randomUUID();
+    const assistantTurnId = randomUUID();
+
+    let userAudioPath: string | null = null;
+    if (userAudio?.bytes?.length) {
+      const userExt = extFromMime(
+        userAudio.mimeType,
+        userAudio.originalname,
+      );
+      userAudioPath = await this.audioStorage.writeBytes(
+        sessionId,
+        userTurnId,
+        "user",
+        userAudio.bytes,
+        userExt,
+      );
+    }
 
     // 2) Safety pre-check
     let safetyMode: SafetyMode = "normal";
@@ -234,32 +380,42 @@ export class AiOrchestratorService {
       }
     }
 
-    // 4) TTS on final assistant text (including safe reply)
-    const ttsResult = await this.runTtsWithFallback({
+    if (onAssistantText) {
+      await onAssistantText({
+        text: assistantText,
+        safetyMode,
+        ...(safetyResources ? { safetyResources } : {}),
+      });
+    }
+
+    // 4) TTS — chunked when emitter provided; otherwise single synthesize.
+    const locale = clientLocale ?? session.locale;
+    const tts = await this.runTtsPossiblyChunked({
       text: assistantText,
-      locale: fields.clientLocale ?? session.locale,
+      locale,
       sessionId,
+      onTtsChunk,
     });
+
     const assistantExt = extFromMime(
-      ttsResult.mimeType ?? "audio/wav",
-      ttsResult.audioUri,
+      tts.mimeType ?? "audio/wav",
+      tts.audioUri,
     );
     const assistantAudioPath = await this.audioStorage.placeFile(
       sessionId,
       assistantTurnId,
       "assistant",
-      ttsResult.audioUri,
+      tts.audioUri,
       assistantExt,
     );
 
     const providers: ProviderInfo = {
-      stt: sttResult.providerName,
+      stt: sttProviderName,
       chat: chatProviderName,
-      tts: ttsResult.providerName,
+      tts: tts.providerName,
     };
     const latencyMs = Date.now() - started;
     const audioUrl = `/v1/sessions/${sessionId}/turns/${assistantTurnId}/audio`;
-    const clientTurnId = fields.clientTurnId ?? null;
 
     // 5) Persist user + assistant turns
     await this.prisma.$transaction([
@@ -270,7 +426,7 @@ export class AiOrchestratorService {
           role: "user",
           transcript: userTranscript,
           audioUri: userAudioPath,
-          latencyMs: sttResult.latencyMs ?? null,
+          latencyMs: sttLatencyMs ?? null,
           providers,
           clientTurnId,
         },
@@ -290,7 +446,7 @@ export class AiOrchestratorService {
     ]);
 
     this.logger.log(
-      `runTurn ok sessionId=${sessionId} turnId=${assistantTurnId} ` +
+      `finalizeVoiceTurn ok sessionId=${sessionId} turnId=${assistantTurnId} ` +
         `providers=${providers.stt}/${providers.chat}/${providers.tts} ` +
         `latencyMs=${latencyMs} safety=${safetyMode}`,
     );
@@ -319,6 +475,75 @@ export class AiOrchestratorService {
       latencyMs,
     };
     return ok(data);
+  }
+
+  /**
+   * Split assistant text into short sentences/phrases and synthesize each.
+   * Falls back to a single synthesize when no chunk callback is provided.
+   * Persists the last (or only) audio blob for replay URL.
+   */
+  private async runTtsPossiblyChunked(args: {
+    text: string;
+    locale?: string;
+    sessionId: string;
+    onTtsChunk?: FinalizeVoiceTurnInput["onTtsChunk"];
+  }): Promise<{
+    audioUri: string;
+    providerName: string;
+    mimeType?: string;
+    latencyMs?: number;
+  }> {
+    if (!args.onTtsChunk) {
+      return this.runTtsWithFallback({
+        text: args.text,
+        locale: args.locale,
+        sessionId: args.sessionId,
+      });
+    }
+
+    const phrases = splitIntoSpeakablePhrases(args.text);
+    let last: {
+      audioUri: string;
+      providerName: string;
+      mimeType?: string;
+      latencyMs?: number;
+    } | null = null;
+    let providerName = "unknown-tts";
+
+    for (let i = 0; i < phrases.length; i++) {
+      const phrase = phrases[i]!;
+      const result = await this.runTtsWithFallback({
+        text: phrase,
+        locale: args.locale,
+        sessionId: args.sessionId,
+      });
+      providerName = result.providerName;
+      const bytes = await readFile(result.audioUri);
+      const isLast = i === phrases.length - 1;
+      await args.onTtsChunk({
+        seq: i,
+        mime: result.mimeType ?? "audio/wav",
+        bytes,
+        isLast,
+      });
+      last = result;
+    }
+
+    if (!last) {
+      // Empty assistant text — still produce a silent blob for persistence.
+      return this.runTtsWithFallback({
+        text: " ",
+        locale: args.locale,
+        sessionId: args.sessionId,
+      });
+    }
+
+    return {
+      audioUri: last.audioUri,
+      providerName,
+      mimeType: last.mimeType,
+      latencyMs: last.latencyMs,
+    };
   }
 
   private async runSttWithFallback(args: {
@@ -594,4 +819,29 @@ export class AiOrchestratorService {
       latencyMs: assistantTurn.latencyMs ?? undefined,
     };
   }
+}
+
+/**
+ * Split assistant text into short speakable phrases for chunked TTS.
+ * Keeps punctuation attached; falls back to the whole string when tiny.
+ */
+function splitIntoSpeakablePhrases(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [" "];
+  const parts = trimmed
+    .split(/(?<=[.!?…。！？])\s+|\n+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  if (parts.length === 0) return [trimmed];
+  // Merge tiny fragments into neighbors to avoid one-word TTS calls.
+  const merged: string[] = [];
+  for (const part of parts) {
+    const prev = merged[merged.length - 1];
+    if (prev && (part.length < 12 || prev.length < 12)) {
+      merged[merged.length - 1] = `${prev} ${part}`;
+    } else {
+      merged.push(part);
+    }
+  }
+  return merged.length > 0 ? merged : [trimmed];
 }
