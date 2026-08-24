@@ -2,7 +2,9 @@ import "../global.css";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, type ReactNode } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { useColorScheme } from "nativewind";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionProvider, useSession } from "../src/lib/session";
@@ -42,13 +44,26 @@ function RootNavigator() {
   );
 }
 
+function DarkSchemeLock({ children }: { children: ReactNode }) {
+  const { setColorScheme } = useColorScheme();
+
+  useEffect(() => {
+    // Requires tailwind `darkMode: "class"` — media mode throws from css-interop.
+    setColorScheme("dark");
+  }, [setColorScheme]);
+
+  return <>{children}</>;
+}
+
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} className="dark">
       <SafeAreaProvider>
         <SessionProvider>
-          <RootNavigator />
-          <StatusBar style="light" />
+          <DarkSchemeLock>
+            <RootNavigator />
+            <StatusBar style="light" />
+          </DarkSchemeLock>
         </SessionProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

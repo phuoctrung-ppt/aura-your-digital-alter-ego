@@ -9,3 +9,5 @@ export const STT_PROVIDER = Symbol("STT_PROVIDER");
 export const STT_PROVIDER_FALLBACK = Symbol("STT_PROVIDER_FALLBACK");
 export const TTS_PROVIDER = Symbol("TTS_PROVIDER");
 export const TTS_PROVIDER_FALLBACK = Symbol("TTS_PROVIDER_FALLBACK");
+/** Streaming STT for Socket.IO voice path (ADR-0005). */
+export const STREAMING_STT_PROVIDER = Symbol("STREAMING_STT_PROVIDER");

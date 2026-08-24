@@ -13,6 +13,9 @@ module.exports = {
     "./app/**/*.{js,jsx,ts,tsx}",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  // NativeWind/css-interop: default "media" forbids colorScheme.set() and throws on web
+  // when the darkMode flag is injected. Aura is dark-first (userInterfaceStyle: "dark").
+  darkMode: "class",
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
