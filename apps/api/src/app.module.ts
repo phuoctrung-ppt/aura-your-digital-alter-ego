@@ -13,19 +13,20 @@ import { SafetyModule } from "./safety/safety.module";
 import { SessionsModule } from "./sessions/sessions.module";
 import { TurnsModule } from "./turns/turns.module";
 import { UsersModule } from "./users/users.module";
+import { HistoryModule } from "./users/history/history.module";
 import { RealtimeModule } from "./realtime/realtime.module";
 
 /**
  * Root application module.
- * Global: ConfigModule, named Throttler (`default` + `auth` + `sessionCreate` + `voiceTurn`),
- * ThrottlerGuard.
+ * Global: ConfigModule, named Throttler (`default` + `auth` + `sessionCreate` +
+ * `voiceTurn` + `historyDelete`), ThrottlerGuard.
  * Feature: Prisma, Users, Auth, Personas, Sessions, Ai, Safety, Turns, Memory,
- * Realtime (Socket.IO `/v1/voice`).
+ * History (wipe), Realtime (Socket.IO `/v1/voice`).
  * HealthController is non-/v1 (see main.ts).
  *
  * Throttle note: default ThrottlerGuard keys by IP. AGENTS.md §6 wants
- * session-create 10/min and voice turns 20/min **per user** — named limits are
- * wired; true per-user getTracker is deferred (no Redis in MVP).
+ * session-create 10/min, voice turns 20/min, history delete 5/min **per user** —
+ * named limits are wired; true per-user getTracker is deferred (no Redis in MVP).
  * WS finals use an in-memory per-user counter in VoiceGateway (same 20/min).
  */
 @Module({
@@ -38,7 +39,7 @@ import { RealtimeModule } from "./realtime/realtime.module";
         resolve(__dirname, "../.env"),
       ],
     }),
-    // Named throttles: default; auth; sessionCreate; voiceTurn (20 turns/min).
+    // Named throttles: default; auth; sessionCreate; voiceTurn; historyDelete.
     ThrottlerModule.forRoot([
       {
         name: "default",
@@ -60,6 +61,11 @@ import { RealtimeModule } from "./realtime/realtime.module";
         ttl: 60_000,
         limit: 20,
       },
+      {
+        name: "historyDelete",
+        ttl: 60_000,
+        limit: 5,
+      },
     ]),
     PrismaModule,
     UsersModule,
@@ -69,6 +75,7 @@ import { RealtimeModule } from "./realtime/realtime.module";
     AiModule,
     SafetyModule,
     MemoryModule,
+    HistoryModule,
     TurnsModule,
     RealtimeModule,
   ],

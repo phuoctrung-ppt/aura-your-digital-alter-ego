@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { copyFile, mkdir, rename, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 /**
@@ -37,6 +37,17 @@ export class AudioStorage {
     const dir = this.sessionDir(sessionId);
     await mkdir(dir, { recursive: true });
     return dir;
+  }
+
+  /**
+   * Best-effort recursive remove of `{root}/{sessionId}` (M9 history wipe).
+   * `force: true` makes missing dirs a no-op (ENOENT ignored).
+   * Other FS errors propagate — HistoryService catches and warns (sessionId only)
+   * so DB wipe success is never rolled back by blob cleanup.
+   */
+  async deleteSessionDir(sessionId: string): Promise<void> {
+    const dir = this.sessionDir(sessionId);
+    await rm(dir, { recursive: true, force: true });
   }
 
   async writeBytes(

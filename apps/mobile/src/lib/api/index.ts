@@ -14,3 +14,4 @@ export {
   createTurnsApi,
   type UploadTurnInput,
 } from "./turns-api";
+export { historyApi, createHistoryApi } from "./history-api";

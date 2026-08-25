@@ -37,7 +37,8 @@ type MemoryWithPersona = PrismaMemoryItem & {
 
 /**
  * Memory service — list (settings/debug) + best-effort extract for orchestrator.
- * Full RAG injection polish is M9; we do load active facts into chat prompts now.
+ * Active-fact injection into chat prompts is already M5 (`listActiveFacts`).
+ * M9 verifies injection + owns wipe via HistoryService — do not replace here.
  */
 @Injectable()
 export class MemoryService {

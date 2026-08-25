@@ -18,6 +18,12 @@ export const SessionSchema = z.object({
   locale: LocaleSchema,
   startedAt: IsoDateTimeSchema,
   endedAt: IsoDateTimeSchema.nullable(),
+  /**
+   * Optional for History `row_meta` `{turns}` (M9).
+   * TODO(contract-agent / backend-worker): populate on list responses when ready;
+   * keep optional so existing create/get/end consumers stay non-breaking.
+   */
+  turnCount: z.number().int().nonnegative().optional(),
 });
 
 export type Session = z.infer<typeof SessionSchema>;

@@ -4,9 +4,11 @@ import { MemoryController } from "./memory.controller";
 import { MemoryService } from "./memory.service";
 
 /**
- * Memory module — list + best-effort extract (M5 scaffold).
+ * Memory module — list + best-effort extract (M5).
  * PrismaModule is @Global; AuthModule supplies JwtAuthGuard / Passport JWT.
- * History wipe / prompt injection: M9 (T-M9-01).
+ * Prompt injection via MemoryService.listActiveFacts is already wired in the
+ * orchestrator (M5) — M9 verifies only. History wipe lives in HistoryModule
+ * (`users/history`, T-M9-01); do not replace this module.
  */
 @Module({
   imports: [AuthModule],
