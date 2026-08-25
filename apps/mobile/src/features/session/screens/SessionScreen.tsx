@@ -28,14 +28,16 @@ import { homeCopy, sessionCopy } from "../../../lib/i18n";
 import { useNetworkStatus } from "../../../lib/network/useNetworkStatus";
 import { voiceSocket } from "../../../lib/voice/voice-socket";
 import { AvatarStage } from "../../avatar";
-import { ErrorBanner, NetworkEmpty, SafetyBanner } from "../../shared";
+import { ErrorBanner, NetworkEmpty } from "../../shared";
 import { MicPermissionSheet } from "../components/MicPermissionSheet";
 import { PttButton } from "../components/PttButton";
+import { SafetyBanner } from "../safety";
 import { Waveform } from "../components/Waveform";
 import type { SessionUiState } from "../types";
 
 // DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
+// DESIGN-GATE: states.safety_mode = info_banner; PTT remains holdable (not disabled by showSafety)
 
 /** Rolling segment length for SP-4 hybrid uplink (expo-audio has no live PCM callback). */
 const HYBRID_SEGMENT_MS = 1500;

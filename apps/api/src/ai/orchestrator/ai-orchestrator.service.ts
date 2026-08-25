@@ -418,6 +418,12 @@ export class AiOrchestratorService {
     const audioUrl = `/v1/sessions/${sessionId}/turns/${assistantTurnId}/audio`;
 
     // 5) Persist user + assistant turns
+    // On safe-listener, also stamp correctionMeta so idempotent replay
+    // has an explicit secondary signal beyond providers.chat.
+    const assistantCorrectionMeta =
+      safetyMode === "safe-listener"
+        ? ({ safetyMode: "safe-listener" } as const)
+        : undefined;
     await this.prisma.$transaction([
       this.prisma.turn.create({
         data: {
@@ -441,6 +447,9 @@ export class AiOrchestratorService {
           latencyMs,
           providers,
           clientTurnId: null,
+          ...(assistantCorrectionMeta
+            ? { correctionMeta: assistantCorrectionMeta }
+            : {}),
         },
       }),
     ]);
@@ -806,6 +815,15 @@ export class AiOrchestratorService {
         tts: "unknown",
       }) as ProviderInfo;
 
+    // Prefer providers.chat (always persisted on safe path); correctionMeta
+    // is an optional secondary signal written since M10.
+    const safetyMode = inferSafetyModeFromPersistedTurn(
+      providers,
+      assistantTurn.correctionMeta,
+    );
+    const safetyResources =
+      safetyMode === "safe-listener" ? this.safety.resources() : undefined;
+
     return {
       turnId: assistantTurn.id,
       sessionId,
@@ -815,10 +833,34 @@ export class AiOrchestratorService {
       audioUrl: `/v1/sessions/${sessionId}/turns/${assistantTurn.id}/audio`,
       provider: providers,
       avatarCue: "talk",
-      safetyMode: "normal",
+      safetyMode,
+      ...(safetyResources ? { safetyResources } : {}),
       latencyMs: assistantTurn.latencyMs ?? undefined,
     };
   }
+}
+
+/**
+ * Reconstruct safetyMode for idempotent replay.
+ * Primary signal: providers.chat === "safe-listener" (set when safe path runs).
+ * Secondary: correctionMeta.safetyMode when present (M10+ writes).
+ */
+function inferSafetyModeFromPersistedTurn(
+  providers: ProviderInfo,
+  correctionMeta: unknown,
+): SafetyMode {
+  if (providers.chat === "safe-listener") {
+    return "safe-listener";
+  }
+  if (
+    correctionMeta &&
+    typeof correctionMeta === "object" &&
+    !Array.isArray(correctionMeta) &&
+    (correctionMeta as { safetyMode?: unknown }).safetyMode === "safe-listener"
+  ) {
+    return "safe-listener";
+  }
+  return "normal";
 }
 
 /**
