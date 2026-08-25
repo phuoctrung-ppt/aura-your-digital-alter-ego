@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { AppLogger } from "../../common";
 import type { TtsProvider, TtsRequest, TtsResult } from "../interfaces/tts-provider";
 import { fetchWithTimeout, providerUnavailable } from "../provider-errors";
-import { getGoogleAccessToken } from "./google-adc";
+import { getGoogleAuthHeaders } from "./google-adc";
 
 type SynthesizeResponse = {
   audioContent?: string;
@@ -53,9 +53,9 @@ export class GcpTextToSpeechProvider implements TtsProvider {
     }
 
     const started = Date.now();
-    let accessToken: string;
+    let authHeaders: Record<string, string>;
     try {
-      accessToken = await getGoogleAccessToken();
+      authHeaders = await getGoogleAuthHeaders();
     } catch (err) {
       this.logger.warn(
         `gcp-tts.synthesize adc failed latencyMs=${Date.now() - started}`,
@@ -88,7 +88,7 @@ export class GcpTextToSpeechProvider implements TtsProvider {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
+            ...authHeaders,
           },
           body: JSON.stringify(body),
         },

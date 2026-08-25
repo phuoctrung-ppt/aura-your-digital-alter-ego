@@ -11,6 +11,19 @@ export { FakeTtsProvider } from "./fake-tts.provider";
 export { FakeStreamingSttProvider } from "./fake-streaming-stt.provider";
 export { GcpSpeechStreamingSttProvider } from "./gcp-speech-streaming.stt";
 export {
+  resolveHybridSpeechModels,
+  resolveSpeechAlternativeLanguageCodes,
+  resolveSpeechLanguageCode,
+} from "./gcp-speech-language";
+export {
+  hasMp4MoovAtom,
+  mimeNeedsLinear16Transcode,
+  normalizeLinear16Pcm,
+  transcodeToLinear16,
+} from "./audio-to-linear16";
+export {
   getGoogleAccessToken,
+  getGoogleAuthHeaders,
+  resolveGoogleQuotaProject,
   resetGoogleAdcCacheForTests,
 } from "./google-adc";

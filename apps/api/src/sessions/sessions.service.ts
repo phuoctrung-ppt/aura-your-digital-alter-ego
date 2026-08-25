@@ -29,6 +29,7 @@ type SessionCursor = {
 
 type SessionWithPersona = PrismaSession & {
   persona: Pick<Persona, "slug">;
+  _count?: { turns: number };
 };
 
 /** Session + persona prompt fields for orchestrator (never expose prompt text on HTTP DTOs). */
@@ -125,6 +126,7 @@ export class SessionsService {
       },
       include: {
         persona: { select: { slug: true } },
+        _count: { select: { turns: true } },
       },
       orderBy: [{ startedAt: "desc" }, { id: "desc" }],
       take: limit + 1,
@@ -238,6 +240,8 @@ export class SessionsService {
       locale: row.locale,
       startedAt: row.startedAt.toISOString(),
       endedAt: row.endedAt ? row.endedAt.toISOString() : null,
+      // Optional: History row_meta `{turns}` (M9). Present on list when `_count` loaded.
+      ...(row._count ? { turnCount: row._count.turns } : {}),
     };
   }
 

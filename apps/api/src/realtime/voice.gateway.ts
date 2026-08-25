@@ -51,7 +51,6 @@ type InflightTurn = {
   totalBytes: number;
   startedAtMs: number;
   sttSession: ReturnType<StreamingSttProvider["createSession"]>;
-  audioChunks: Buffer[];
 };
 
 /**
@@ -250,7 +249,6 @@ export class VoiceGateway
       totalBytes: 0,
       startedAtMs: Date.now(),
       sttSession,
-      audioChunks: [],
     });
 
     this.logger.log(
@@ -350,7 +348,8 @@ export class VoiceGateway
 
     turn.nextSeq += 1;
     turn.totalBytes += bytes.length;
-    turn.audioChunks.push(bytes);
+    // Do not buffer uplink audio for disk persistence on the WS path —
+    // STT owns the frames; product MVP does not need user-turn audio files.
     try {
       await turn.sttSession.pushAudio(bytes);
     } catch (err) {
@@ -467,9 +466,6 @@ export class VoiceGateway
     };
     client.emit(VoiceWsEvents.SttFinal, sttPayload);
 
-    const userAudioBytes = Buffer.concat(turn.audioChunks);
-    const mimeType = mimeForEncoding(turn.encoding);
-
     try {
       const response = await this.orchestrator.finalizeVoiceTurn({
         userId: user.userId,
@@ -477,13 +473,8 @@ export class VoiceGateway
         clientTurnId: event.clientTurnId,
         clientLocale: turn.clientLocale,
         userTranscript: sttFinal.transcript,
-        userAudio: userAudioBytes.length
-          ? {
-              bytes: userAudioBytes,
-              mimeType,
-              originalname: `uplink.${extForEncoding(turn.encoding)}`,
-            }
-          : undefined,
+        // WS path: do not persist user uplink audio (STT already consumed it).
+        // REST multipart may still pass userAudio when needed for CI/replay.
         sttProviderName: sttFinal.providerName,
         sttLatencyMs: sttFinal.latencyMs,
         onAssistantText: async (info) => {
@@ -634,6 +625,8 @@ export class VoiceGateway
           code = ErrorCodes.SESSION_NOT_FOUND;
         } else if (status === 409) {
           code = ErrorCodes.SESSION_CLOSED;
+        } else if (status === 400) {
+          code = ErrorCodes.AUDIO_INVALID;
         } else if (status === 429) {
           code = ErrorCodes.RATE_LIMITED;
         } else if (status === 503) {
@@ -671,30 +664,6 @@ function coerceBuffer(value: unknown): Buffer | undefined {
   if (value instanceof ArrayBuffer) return Buffer.from(value);
   if (value instanceof Uint8Array) return Buffer.from(value);
   return undefined;
-}
-
-function mimeForEncoding(encoding: VoiceAudioEncoding): string {
-  switch (encoding) {
-    case "segment_m4a":
-      return "audio/mp4";
-    case "segment_wav":
-      return "audio/wav";
-    case "pcm_s16le":
-    default:
-      return "audio/wav";
-  }
-}
-
-function extForEncoding(encoding: VoiceAudioEncoding): string {
-  switch (encoding) {
-    case "segment_m4a":
-      return "m4a";
-    case "segment_wav":
-      return "wav";
-    case "pcm_s16le":
-    default:
-      return "pcm";
-  }
 }
 
 function normalizeTtsMime(mime: string): VoiceTtsMime {

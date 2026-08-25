@@ -43,7 +43,8 @@ export const VOICE_PCM_ENCODING = "pcm_s16le" as const;
 
 /**
  * Max bytes per `audio.frame` payload (base64-decoded or binary attachment).
- * ~2 s of PCM16@16kHz mono ≈ 64 KiB; hybrid m4a/wav segments stay under this.
+ * ~2 s of PCM16@16kHz mono ≈ 64 KiB. One-shot finalized m4a/wav may be split
+ * across multiple frames; the API concatenates before decode.
  */
 export const VOICE_AUDIO_MAX_FRAME_BYTES = 64 * 1024;
 

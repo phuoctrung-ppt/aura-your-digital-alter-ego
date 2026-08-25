@@ -8,3 +8,4 @@ export {
   networkCopy,
   commonCopy,
 } from "./copy";
+export { personaLabel } from "./personaLabel";

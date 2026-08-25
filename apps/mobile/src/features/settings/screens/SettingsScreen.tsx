@@ -1,20 +1,40 @@
-import { useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { settingsCopy } from "../../../lib/i18n";
+import { historyApi } from "../../../lib/api";
+import { isApiMockEnabled } from "../../../lib/config";
+import { commonCopy, settingsCopy } from "../../../lib/i18n";
 import { useSession } from "../../../lib/session";
-import { WipeHistorySheetStub } from "../components/WipeHistorySheetStub";
+import { WipeHistorySheet } from "../components/WipeHistorySheet";
 
 // DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 /**
- * Settings — account email + logout; wipe sheet soft-disabled until M9.
+ * Settings — account email, history wipe sheet, logout.
  */
 export function SettingsScreen() {
   const { user, logout } = useSession();
   const [busy, setBusy] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipeBusy, setWipeBusy] = useState(false);
+
+  const onConfirmWipe = useCallback(async () => {
+    if (wipeBusy) return;
+    setWipeBusy(true);
+    try {
+      if (!isApiMockEnabled()) {
+        await historyApi.deleteHistory();
+      }
+      setWipeOpen(false);
+      Alert.alert(settingsCopy.wipe_success);
+    } catch {
+      // Keep sheet open; generic failure — no server dump.
+      Alert.alert(settingsCopy.wipe_title, commonCopy.retry);
+    } finally {
+      setWipeBusy(false);
+    }
+  }, [wipeBusy]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#0B1220" }} edges={["top"]}>
@@ -151,12 +171,14 @@ export function SettingsScreen() {
         </Pressable>
       </View>
 
-      <WipeHistorySheetStub
+      <WipeHistorySheet
         visible={wipeOpen}
-        onCancel={() => setWipeOpen(false)}
+        busy={wipeBusy}
+        onCancel={() => {
+          if (!wipeBusy) setWipeOpen(false);
+        }}
         onConfirm={() => {
-          // TODO(M9): DELETE /v1/me/history — soft-disabled confirm for now.
-          setWipeOpen(false);
+          void onConfirmWipe();
         }}
       />
     </SafeAreaView>

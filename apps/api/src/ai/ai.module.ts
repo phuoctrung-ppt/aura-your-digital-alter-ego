@@ -28,8 +28,17 @@ import {
 } from "./tokens";
 
 function isFakeMode(config: ConfigService): boolean {
-  const mode = (config.get<string>("AI_PROVIDER_MODE") ?? "").trim().toLowerCase();
-  return mode === "fake";
+  return envFlag(config.get<string>("AI_PROVIDER_MODE")) === "fake";
+}
+
+/**
+ * Normalize dotenv tokens. Inline `# ...` comments sometimes leak into values
+ * when a line is written as `KEY=vertex  # comment` without quotes — strip them.
+ */
+function envFlag(raw: string | undefined): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return "";
+  return trimmed.split(/\s+#/, 1)[0]!.trim().toLowerCase();
 }
 
 /**
@@ -84,9 +93,12 @@ function isFakeMode(config: ConfigService): boolean {
         openai: OpenAiCompatibleChatProvider,
       ) => {
         if (isFakeMode(config)) return fake;
-        const mode = (config.get<string>("CHAT_FALLBACK_PROVIDER") ?? "vertex")
-          .trim()
-          .toLowerCase();
+        const mode =
+          envFlag(config.get<string>("CHAT_FALLBACK_PROVIDER")) || "vertex";
+        if (mode === "none" || mode === "off") {
+          // Explicit opt-out — orchestrator will report "no fallback configured".
+          return fake;
+        }
         if (mode === "openai_compatible" || mode === "openai-compatible") {
           return openai;
         }

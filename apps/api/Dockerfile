@@ -22,7 +22,9 @@ FROM node:${NODE_VERSION} AS base
 ARG PNPM_VERSION
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-RUN npm install -g pnpm@${PNPM_VERSION}
+# ffmpeg: decode Expo HIGH_QUALITY m4a/AAC → LINEAR16 for Cloud Speech (SP-3/SP-4)
+RUN apk add --no-cache ffmpeg \
+  && npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
 
 # ── deps ─────────────────────────────────────────────────────────────────────
@@ -77,6 +79,8 @@ CMD ["pnpm", "--filter", "@aura/api", "start:dev"]
 FROM node:${NODE_VERSION} AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
+# Same ffmpeg need as base/dev — runner does not inherit base packages.
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs \

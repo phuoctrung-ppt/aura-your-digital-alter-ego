@@ -1,31 +1,34 @@
-import { Modal, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import { settingsCopy } from "../../../lib/i18n";
 
 // DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
-type WipeHistorySheetStubProps = {
+type WipeHistorySheetProps = {
   visible: boolean;
+  busy?: boolean;
   onCancel: () => void;
-  /** M9: call DELETE /v1/me/history — soft-disabled in M7. */
-  onConfirm?: () => void;
+  onConfirm: () => void;
 };
 
 /**
- * Wipe confirmation sheet stub for M9.
- * Confirm is soft-disabled (opacity + no API) until history wipe ships.
+ * Wipe confirmation sheet — destructive confirm enabled (M9).
+ * Parent owns API call + success feedback; busy blocks double-submit.
  */
-export function WipeHistorySheetStub({
+export function WipeHistorySheet({
   visible,
+  busy = false,
   onCancel,
   onConfirm,
-}: WipeHistorySheetStubProps) {
+}: WipeHistorySheetProps) {
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={() => {
+        if (!busy) onCancel();
+      }}
     >
       <View
         style={{
@@ -70,7 +73,9 @@ export function WipeHistorySheetStub({
           </Text>
           <Pressable
             onPress={onCancel}
+            disabled={busy}
             accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
             accessibilityLabel={settingsCopy.wipe_cancel}
             style={{
               marginBottom: 12,
@@ -80,6 +85,7 @@ export function WipeHistorySheetStub({
               borderRadius: 12,
               borderWidth: 1,
               borderColor: "#33415C",
+              opacity: busy ? 0.5 : 1,
             }}
           >
             <Text
@@ -95,10 +101,10 @@ export function WipeHistorySheetStub({
           </Pressable>
           <Pressable
             onPress={onConfirm}
-            disabled
+            disabled={busy}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
-            accessibilityLabel={`${settingsCopy.wipe_confirm} (sắp có)`}
+            accessibilityState={{ disabled: busy, busy }}
+            accessibilityLabel={settingsCopy.wipe_confirm}
             style={{
               height: 48,
               alignItems: "center",
@@ -107,32 +113,24 @@ export function WipeHistorySheetStub({
               borderWidth: 1,
               borderColor: "rgba(248, 113, 113, 0.5)",
               backgroundColor: "rgba(248, 113, 113, 0.1)",
-              opacity: 0.4,
+              opacity: busy ? 0.6 : 1,
             }}
           >
-            <Text
-              style={{
-                color: "#F87171",
-                fontSize: 16,
-                fontWeight: "600",
-                lineHeight: 20,
-              }}
-            >
-              {settingsCopy.wipe_confirm}
-            </Text>
+            {busy ? (
+              <ActivityIndicator color="#F87171" />
+            ) : (
+              <Text
+                style={{
+                  color: "#F87171",
+                  fontSize: 16,
+                  fontWeight: "600",
+                  lineHeight: 20,
+                }}
+              >
+                {settingsCopy.wipe_confirm}
+              </Text>
+            )}
           </Pressable>
-          <Text
-            style={{
-              marginTop: 12,
-              textAlign: "center",
-              color: "#6B7A94",
-              fontSize: 12,
-              fontWeight: "400",
-              lineHeight: 16,
-            }}
-          >
-            TODO M9 — API xóa lịch sử
-          </Text>
         </View>
       </View>
     </Modal>

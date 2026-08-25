@@ -692,6 +692,8 @@ export class AiOrchestratorService {
         content: t.transcript as string,
       }));
 
+    // M9 verify: active MemoryItems are still injected into the system prompt.
+    // Cap=8; persona-scoped OR null facts only; never log fact/transcript text.
     let memoryFacts: string[] = [];
     try {
       memoryFacts = await this.memory.listActiveFacts(args.userId, {
