@@ -5,6 +5,7 @@ import {
 } from "expo-audio";
 import { getApiBaseUrl } from "../config";
 import { tokenStore } from "../session/token-store";
+import { setActivePlayer } from "./playback-registry";
 
 function toAbsoluteAudioUrl(audioUrl: string): string {
   if (/^https?:\/\//i.test(audioUrl)) {
@@ -14,14 +15,22 @@ function toAbsoluteAudioUrl(audioUrl: string): string {
   return `${getApiBaseUrl()}${path}`;
 }
 
+export type PlayTurnAudioOptions = {
+  signal?: AbortSignal;
+  /** Invoked when the imperative player is created / cleared. */
+  onPlayer?: (player: AudioPlayer | null) => void;
+  onPlayingChange?: (playing: boolean) => void;
+};
+
 /**
  * Play assistant TTS from TurnResponse.audioUrl.
  * Relative API paths need Bearer (GET /v1/sessions/:id/turns/:turnId/audio).
  * Resolves when playback finishes or on error (never throws to callers).
+ * Publishes the active player to playback-registry for lip-sync.
  */
 export async function playTurnAudio(
   audioUrl: string,
-  opts?: { signal?: AbortSignal },
+  opts?: PlayTurnAudioOptions,
 ): Promise<void> {
   let player: AudioPlayer | undefined;
 
@@ -44,6 +53,9 @@ export async function playTurnAudio(
     );
 
     const activePlayer = player;
+    setActivePlayer(activePlayer, true);
+    opts?.onPlayer?.(activePlayer);
+    opts?.onPlayingChange?.(true);
 
     await new Promise<void>((resolve) => {
       let settled = false;
@@ -107,6 +119,9 @@ export async function playTurnAudio(
   } catch {
     // Playback failures are soft — session returns to idle.
   } finally {
+    setActivePlayer(null, false);
+    opts?.onPlayingChange?.(false);
+    opts?.onPlayer?.(null);
     try {
       player?.remove();
     } catch {

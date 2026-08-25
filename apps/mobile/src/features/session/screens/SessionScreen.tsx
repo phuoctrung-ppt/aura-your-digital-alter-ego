@@ -18,6 +18,7 @@ import {
 import { turnsApi } from "../../../lib/api";
 import { arrayBufferToBase64, readUriAsArrayBuffer } from "../../../lib/audio/audio-utils";
 import { chunkPlayer } from "../../../lib/audio/chunk-player";
+import { playTurnAudio } from "../../../lib/audio/play-turn-audio";
 import {
   isApiMockEnabled,
   isVoiceRestFallbackEnabled,
@@ -26,8 +27,8 @@ import { createClientTurnId } from "../../../lib/id";
 import { homeCopy, sessionCopy } from "../../../lib/i18n";
 import { useNetworkStatus } from "../../../lib/network/useNetworkStatus";
 import { voiceSocket } from "../../../lib/voice/voice-socket";
+import { AvatarStage } from "../../avatar";
 import { ErrorBanner, NetworkEmpty, SafetyBanner } from "../../shared";
-import { AvatarPlaceholder } from "../components/AvatarPlaceholder";
 import { MicPermissionSheet } from "../components/MicPermissionSheet";
 import { PttButton } from "../components/PttButton";
 import { Waveform } from "../components/Waveform";
@@ -356,8 +357,12 @@ export function SessionScreen({
         }
         setAvatarCue(turn.avatarCue);
         setUiState("talk");
-        // REST returns a single audioUrl — chunk player unused on this path.
-        await new Promise((r) => setTimeout(r, 900));
+        // REST returns a single audioUrl — publish via playTurnAudio registry for lip-sync.
+        if (turn.audioUrl) {
+          await playTurnAudio(turn.audioUrl);
+        } else {
+          await new Promise((r) => setTimeout(r, 400));
+        }
         if (mounted.current) {
           setUiState("idle");
           setAvatarCue("idle");
@@ -640,10 +645,12 @@ export function SessionScreen({
             marginBottom: 16,
           }}
         >
-          <AvatarPlaceholder
+          <AvatarStage
             state={uiState}
             personaName={name}
             avatarCue={avatarCue}
+            avatarAssetKey={personaSlug}
+            degraded={process.env.EXPO_PUBLIC_AVATAR_DEGRADED === "1"}
           />
         </View>
 
