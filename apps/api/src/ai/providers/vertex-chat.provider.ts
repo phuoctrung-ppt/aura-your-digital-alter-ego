@@ -7,17 +7,25 @@ import type {
   ChatResult,
 } from "../interfaces/chat-provider";
 import { fetchWithTimeout, providerUnavailable } from "../provider-errors";
-import { getGoogleAccessToken } from "./google-adc";
+import {
+  getGoogleAuthHeaders,
+  resolveGoogleQuotaProject,
+} from "./google-adc";
 
 /**
  * Preferred chat fallback — Vertex AI Gemini via OpenAI-compatible endpoint (ADC).
- * Env: `VERTEX_PROJECT_ID` (or `GCLOUD_PROJECT` / `GOOGLE_CLOUD_PROJECT`),
+ * Env: `VERTEX_PROJECT_ID` (or `GCLOUD_PROJECT` / `GOOGLE_CLOUD_PROJECT` /
+ * `GOOGLE_CLOUD_QUOTA_PROJECT` / ADC `quota_project_id`),
  * `VERTEX_LOCATION` (default `asia-southeast1`),
  * `VERTEX_CHAT_MODEL` (default `gemini-2.0-flash-001`),
  * optional `LLM_FALLBACK_TIMEOUT_MS`.
  *
  * Auth: Bearer ADC access token — no API key required.
  * Recorded providerName: `fallback-vertex`.
+ *
+ * Project id must resolve the same way Speech/TTS do via
+ * {@link resolveGoogleQuotaProject}; otherwise Ollama failure surfaces as
+ * "no fallback is configured" even when ADC quota project is set.
  */
 @Injectable()
 export class VertexChatProvider implements ChatProvider {
@@ -54,9 +62,9 @@ export class VertexChatProvider implements ChatProvider {
       `/locations/${location}/endpoints/openapi/chat/completions`;
 
     const started = Date.now();
-    let accessToken: string;
+    let authHeaders: Record<string, string>;
     try {
-      accessToken = await getGoogleAccessToken();
+      authHeaders = await getGoogleAuthHeaders();
     } catch (err) {
       this.logger.warn(
         `vertex.chat adc failed latencyMs=${Date.now() - started}`,
@@ -74,7 +82,7 @@ export class VertexChatProvider implements ChatProvider {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
+            ...authHeaders,
           },
           body: JSON.stringify({
             model,
@@ -124,6 +132,10 @@ export class VertexChatProvider implements ChatProvider {
       this.config.get<string>("VERTEX_PROJECT_ID")?.trim() ||
       this.config.get<string>("GCLOUD_PROJECT")?.trim() ||
       this.config.get<string>("GOOGLE_CLOUD_PROJECT")?.trim() ||
+      this.config.get<string>("GOOGLE_CLOUD_QUOTA_PROJECT")?.trim() ||
+      // Same ADC / quota resolution Speech uses — ConfigService alone misses
+      // application_default_credentials.json `quota_project_id`.
+      resolveGoogleQuotaProject() ||
       undefined
     );
   }

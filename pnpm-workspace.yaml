@@ -8,6 +8,7 @@ allowBuilds:
   "prisma": true
   bcrypt: true
   "@scarf/scarf": false
+  protobufjs: true
 minimumReleaseAgeExclude:
   - '@turbo/darwin-64@2.10.11'
   - '@turbo/darwin-arm64@2.10.11'

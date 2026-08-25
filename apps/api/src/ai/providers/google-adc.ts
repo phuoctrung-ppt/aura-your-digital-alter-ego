@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { GoogleAuth } from "google-auth-library";
 
 const CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
@@ -13,6 +16,7 @@ type CachedToken = {
 let authClient: GoogleAuth | undefined;
 let cached: CachedToken | undefined;
 let inflight: Promise<string> | undefined;
+let cachedQuotaProject: string | null | undefined;
 
 function getAuth(): GoogleAuth {
   if (!authClient) {
@@ -21,6 +25,58 @@ function getAuth(): GoogleAuth {
     });
   }
   return authClient;
+}
+
+/**
+ * Quota / billing project for user ADC REST calls.
+ * User credentials often need `x-goog-user-project` when calling Speech / TTS
+ * (and some other APIs) via raw fetch — Google client libs attach this from
+ * ADC `quota_project_id`, but Nest providers use fetch.
+ *
+ * Resolution order:
+ * 1. `GOOGLE_CLOUD_QUOTA_PROJECT`
+ * 2. `VERTEX_PROJECT_ID` / `GCLOUD_PROJECT` / `GOOGLE_CLOUD_PROJECT`
+ * 3. ADC credentials file `quota_project_id` (from
+ *    `gcloud auth application-default set-quota-project`)
+ */
+export function resolveGoogleQuotaProject(): string | undefined {
+  if (cachedQuotaProject !== undefined) {
+    return cachedQuotaProject ?? undefined;
+  }
+
+  const fromEnv =
+    process.env.GOOGLE_CLOUD_QUOTA_PROJECT?.trim() ||
+    process.env.VERTEX_PROJECT_ID?.trim() ||
+    process.env.GCLOUD_PROJECT?.trim() ||
+    process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
+    undefined;
+
+  if (fromEnv) {
+    cachedQuotaProject = fromEnv;
+    return fromEnv;
+  }
+
+  const fromAdc = readQuotaProjectFromAdcFile();
+  cachedQuotaProject = fromAdc ?? null;
+  return fromAdc;
+}
+
+function readQuotaProjectFromAdcFile(): string | undefined {
+  try {
+    const explicit = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim();
+    const path =
+      explicit ||
+      join(homedir(), ".config", "gcloud", "application_default_credentials.json");
+    const raw = readFileSync(path, "utf8");
+    const parsed = JSON.parse(raw) as { quota_project_id?: unknown };
+    const id =
+      typeof parsed.quota_project_id === "string"
+        ? parsed.quota_project_id.trim()
+        : "";
+    return id.length > 0 ? id : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -70,9 +126,27 @@ export async function getGoogleAccessToken(): Promise<string> {
   }
 }
 
-/** Test-only: clear cached token / auth client. */
+/**
+ * Headers for GCP REST calls under user ADC.
+ * Always sets `Authorization`; adds `x-goog-user-project` when a quota
+ * project is resolvable (required by Speech / Text-to-Speech for user creds).
+ */
+export async function getGoogleAuthHeaders(): Promise<Record<string, string>> {
+  const accessToken = await getGoogleAccessToken();
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+  const quotaProject = resolveGoogleQuotaProject();
+  if (quotaProject) {
+    headers["x-goog-user-project"] = quotaProject;
+  }
+  return headers;
+}
+
+/** Test-only: clear cached token / auth client / quota project. */
 export function resetGoogleAdcCacheForTests(): void {
   cached = undefined;
   inflight = undefined;
   authClient = undefined;
+  cachedQuotaProject = undefined;
 }

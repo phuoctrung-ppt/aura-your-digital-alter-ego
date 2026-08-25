@@ -24,7 +24,7 @@ import {
   isVoiceRestFallbackEnabled,
 } from "../../../lib/config";
 import { createClientTurnId } from "../../../lib/id";
-import { homeCopy, sessionCopy } from "../../../lib/i18n";
+import { personaLabel, sessionCopy } from "../../../lib/i18n";
 import { useNetworkStatus } from "../../../lib/network/useNetworkStatus";
 import { voiceSocket } from "../../../lib/voice/voice-socket";
 import { AvatarStage } from "../../avatar";
@@ -37,24 +37,11 @@ import type { SessionUiState } from "../types";
 // DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
-/** Rolling segment length for SP-4 hybrid uplink (expo-audio has no live PCM callback). */
-const HYBRID_SEGMENT_MS = 1500;
-
 type SessionScreenProps = {
   sessionId?: string;
   personaSlug?: PersonaSlug;
   onBack?: () => void;
 };
-
-function personaLabel(slug: PersonaSlug | undefined): string {
-  if (slug === "native-buddy") {
-    return homeCopy.persona.native_buddy.name;
-  }
-  if (slug === "tough-interviewer") {
-    return homeCopy.persona.tough_interviewer.name;
-  }
-  return "Aura";
-}
 
 function chipLabel(state: SessionUiState): string {
   switch (state) {
@@ -74,9 +61,15 @@ function chipLabel(state: SessionUiState): string {
 
 /**
  * Session presence — avatar stage (~58%) + waveform + PTT hold-to-talk.
- * Primary transport: Socket.IO `/v1/voice` with SP-4 **segment_m4a** hybrid uplink
- * (rolling short clips while held; finalize on release). REST multipart is opt-in
- * via `EXPO_PUBLIC_VOICE_REST_FALLBACK=1` only.
+ * Primary transport: Socket.IO `/v1/voice` with SP-4 **segment_m4a** uplink —
+ * one continuous HIGH_QUALITY recording for the whole hold, stopped once on
+ * release, then chunked into ≤64 KiB `audio.frame`s (server concatenates
+ * before decode). Native = AAC-in-MP4 `.m4a`; **Expo web** MediaRecorder emits
+ * `audio/webm` under the same wire encoding — API sniffs EBML and decodes as
+ * WebM (no `moov`). Rolling stop/restart was abandoned: short native clips
+ * often lack a `moov` atom and Speech v1 cannot ingest AAC/M4A without a
+ * complete container + ffmpeg. REST multipart is opt-in via
+ * `EXPO_PUBLIC_VOICE_REST_FALLBACK=1` only.
  */
 export function SessionScreen({
   sessionId,
@@ -105,82 +98,74 @@ export function SessionScreen({
   const finishHoldRef = useRef<() => Promise<void>>(async () => undefined);
   const clientTurnIdRef = useRef<string | null>(null);
   const lastSeqRef = useRef(-1);
-  const segmentTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const segmentBusy = useRef(false);
+  const flushBusy = useRef(false);
   const useRestFallback = isVoiceRestFallbackEnabled();
 
   const name = useMemo(() => personaLabel(personaSlug), [personaSlug]);
 
-  const clearSegmentTimer = useCallback(() => {
-    if (segmentTimerRef.current) {
-      clearInterval(segmentTimerRef.current);
-      segmentTimerRef.current = null;
-    }
-  }, []);
-
-  const emitSegmentFromUri = useCallback(
-    async (uri: string, isLast: boolean): Promise<boolean> => {
+  /**
+   * Read a finalized recorder URI and emit as one or more `segment_m4a` frames.
+   * Long holds exceed `VOICE_AUDIO_MAX_FRAME_BYTES` — chunk the same file; the
+   * API concatenates frames before moov/ffmpeg decode.
+   */
+  const emitFinalizedRecording = useCallback(
+    async (uri: string): Promise<boolean> => {
       const clientTurnId = clientTurnIdRef.current;
       if (!clientTurnId) return false;
 
       const buffer = await readUriAsArrayBuffer(uri);
       if (!buffer.byteLength) return false;
 
-      // Contract cap per frame — drop oversize segment rather than violate Zod.
-      if (buffer.byteLength > VOICE_AUDIO_MAX_FRAME_BYTES) {
-        return false;
+      const bytes = new Uint8Array(buffer);
+      let offset = 0;
+      let sent = 0;
+      while (offset < bytes.length) {
+        const end = Math.min(offset + VOICE_AUDIO_MAX_FRAME_BYTES, bytes.length);
+        const slice = bytes.subarray(offset, end);
+        const sliceBuffer = slice.buffer.slice(
+          slice.byteOffset,
+          slice.byteOffset + slice.byteLength,
+        );
+        lastSeqRef.current += 1;
+        voiceSocket.sendFrame({
+          clientTurnId,
+          seq: lastSeqRef.current,
+          payloadBase64: arrayBufferToBase64(sliceBuffer),
+          byteLength: slice.byteLength,
+          isLast: end >= bytes.length,
+        });
+        sent += 1;
+        offset = end;
       }
-
-      lastSeqRef.current += 1;
-      voiceSocket.sendFrame({
-        clientTurnId,
-        seq: lastSeqRef.current,
-        payloadBase64: arrayBufferToBase64(buffer),
-        byteLength: buffer.byteLength,
-        isLast,
-      });
-      return true;
+      return sent > 0;
     },
     [],
   );
 
-  /** Stop current clip, stream bytes as one `segment_m4a` frame, optionally restart. */
-  const rotateHybridSegment = useCallback(
-    async (opts: { restart: boolean; isLast: boolean }): Promise<void> => {
-      if (segmentBusy.current) return;
-      segmentBusy.current = true;
+  /** Stop the single hold recording and stream the complete m4a over WSS. */
+  const flushFinalRecording = useCallback(async (): Promise<boolean> => {
+    if (flushBusy.current) return false;
+    flushBusy.current = true;
+    try {
+      let uri: string | null = null;
       try {
-        let uri: string | null = null;
-        try {
-          if (recorder.isRecording) {
-            await recorder.stop();
-          }
-          uri = recorder.uri;
-        } catch {
-          uri = null;
+        if (recorder.isRecording) {
+          await recorder.stop();
         }
-
-        if (uri) {
-          try {
-            await emitSegmentFromUri(uri, opts.isLast);
-          } catch {
-            // Segment read/send failed — continue; endTurn still finalizes what arrived.
-          }
-        }
-
-        if (opts.restart && holdActive.current && !releaseRequested.current) {
-          await recorder.prepareToRecordAsync();
-          if (!holdActive.current || releaseRequested.current) return;
-          recorder.record({
-            forDuration: TURN_AUDIO_MAX_DURATION_MS / 1000,
-          });
-        }
-      } finally {
-        segmentBusy.current = false;
+        uri = recorder.uri;
+      } catch {
+        uri = null;
       }
-    },
-    [emitSegmentFromUri, recorder],
-  );
+      if (!uri) return false;
+      try {
+        return await emitFinalizedRecording(uri);
+      } catch {
+        return false;
+      }
+    } finally {
+      flushBusy.current = false;
+    }
+  }, [emitFinalizedRecording, recorder]);
 
   useEffect(() => {
     mounted.current = true;
@@ -234,7 +219,6 @@ export function SessionScreen({
         onError: (e) => {
           if (!mounted.current) return;
           finishing.current = false;
-          clearSegmentTimer();
           setTurnError(e.message || sessionCopy.error_turn);
           setUiState("idle");
           setAvatarCue("idle");
@@ -244,7 +228,6 @@ export function SessionScreen({
 
     return () => {
       mounted.current = false;
-      clearSegmentTimer();
       chunkPlayer.stop();
       voiceSocket.disconnect();
       try {
@@ -255,7 +238,7 @@ export function SessionScreen({
         // ignore
       }
     };
-  }, [clearSegmentTimer, recorder, useRestFallback]);
+  }, [recorder, useRestFallback]);
 
   const ensureMicPermission = useCallback(async (): Promise<boolean> => {
     try {
@@ -281,7 +264,6 @@ export function SessionScreen({
     finishing.current = true;
     holdActive.current = false;
     releaseRequested.current = false;
-    clearSegmentTimer();
 
     if (!sessionId) {
       finishing.current = false;
@@ -381,9 +363,11 @@ export function SessionScreen({
       return;
     }
 
-    // Primary WSS path: flush final hybrid segment, then turn.end.
+    // Primary WSS path: stop the single hold recording, stream it as one or
+    // more `segment_m4a` frames, then turn.end. Server concatenates frames
+    // before ffmpeg decode (complete m4a needed for moov).
     try {
-      await rotateHybridSegment({ restart: false, isLast: true });
+      await flushFinalRecording();
       const clientTurnId = clientTurnIdRef.current;
       if (!clientTurnId) {
         throw new Error("missing clientTurnId");
@@ -405,13 +389,7 @@ export function SessionScreen({
       clientTurnIdRef.current = null;
       // keep lastSeq until next startHold resets it
     }
-  }, [
-    clearSegmentTimer,
-    recorder,
-    rotateHybridSegment,
-    sessionId,
-    useRestFallback,
-  ]);
+  }, [flushFinalRecording, recorder, sessionId, useRestFallback]);
 
   finishHoldRef.current = finishHold;
 
@@ -482,6 +460,9 @@ export function SessionScreen({
         });
       }
 
+      // One continuous recording for the whole hold — finalize once on release.
+      // Rolling stop/restart produced incomplete MP4s (no moov) that Speech
+      // could not decode, and the server only runs STT at turn.end anyway.
       recorder.record({ forDuration: TURN_AUDIO_MAX_DURATION_MS / 1000 });
       recordingStartedAt.current = Date.now();
       holdActive.current = true;
@@ -490,21 +471,11 @@ export function SessionScreen({
         setAvatarCue("listen");
       }
 
-      // SP-4 hybrid: roll short m4a segments over WSS while PTT is held.
-      if (!useRestFallback && !isApiMockEnabled()) {
-        clearSegmentTimer();
-        segmentTimerRef.current = setInterval(() => {
-          if (!holdActive.current) return;
-          void rotateHybridSegment({ restart: true, isLast: false });
-        }, HYBRID_SEGMENT_MS);
-      }
-
       if (releaseRequested.current) {
         await finishHoldRef.current();
       }
     } catch {
       holdActive.current = false;
-      clearSegmentTimer();
       if (mounted.current) {
         setTurnError(sessionCopy.error_turn);
         setUiState("idle");
@@ -512,11 +483,9 @@ export function SessionScreen({
       }
     }
   }, [
-    clearSegmentTimer,
     ensureMicPermission,
     isOnline,
     recorder,
-    rotateHybridSegment,
     sessionId,
     uiState,
     useRestFallback,
@@ -548,7 +517,6 @@ export function SessionScreen({
       >
         <Pressable
           onPress={() => {
-            clearSegmentTimer();
             holdActive.current = false;
             chunkPlayer.stop();
             onBack?.();

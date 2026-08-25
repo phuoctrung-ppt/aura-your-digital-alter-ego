@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   GatewayTimeoutException,
   ServiceUnavailableException,
 } from "@nestjs/common";
@@ -10,6 +11,20 @@ export function providerUnavailable(
 ): ServiceUnavailableException {
   return new ServiceUnavailableException({
     code: ErrorCodes.PROVIDER_UNAVAILABLE,
+    message,
+  });
+}
+
+/**
+ * Audio was accepted on the wire but produced no usable speech transcript
+ * (silence / too short / no speech detected). Prefer this over
+ * PROVIDER_UNAVAILABLE so clients do not treat silence as "provider down".
+ */
+export function audioInvalid(
+  message = "Audio produced no speech transcript",
+): BadRequestException {
+  return new BadRequestException({
+    code: ErrorCodes.AUDIO_INVALID,
     message,
   });
 }
