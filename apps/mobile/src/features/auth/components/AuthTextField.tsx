@@ -8,6 +8,8 @@ type AuthTextFieldProps = {
   /** When set, renders secure entry + optional trailing slot (eye toggle). */
   secureTextEntry?: boolean;
   trailing?: ReactNode;
+  /** Stable Maestro / Detox selector (optional). */
+  testID?: string;
 } & Pick<
   TextInputProps,
   | "autoCapitalize"
@@ -32,6 +34,7 @@ export function AuthTextField({
   secureTextEntry,
   trailing,
   accessibilityLabel,
+  testID,
   ...inputProps
 }: AuthTextFieldProps) {
   return (
@@ -51,6 +54,7 @@ export function AuthTextField({
           secureTextEntry={secureTextEntry}
           placeholderTextColor="#6B7A94"
           accessibilityLabel={accessibilityLabel ?? label}
+          testID={testID}
           {...inputProps}
         />
         {trailing}

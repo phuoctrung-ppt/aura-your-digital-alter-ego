@@ -51,6 +51,7 @@ export function PttButton({
           disabled: disabled || busy || talking,
           busy,
         }}
+        testID="ptt-button"
         hitSlop={4}
         style={{
           width: 88,

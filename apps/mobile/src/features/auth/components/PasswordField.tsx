@@ -10,6 +10,7 @@ type PasswordFieldProps = {
   returnKeyType?: "done" | "next" | "go";
   onSubmitEditing?: () => void;
   editable?: boolean;
+  testID?: string;
 };
 
 /**
@@ -22,6 +23,7 @@ export function PasswordField({
   returnKeyType = "done",
   onSubmitEditing,
   editable = true,
+  testID,
 }: PasswordFieldProps) {
   const [visible, setVisible] = useState(false);
 
@@ -38,6 +40,7 @@ export function PasswordField({
       returnKeyType={returnKeyType}
       onSubmitEditing={onSubmitEditing}
       editable={editable}
+      testID={testID}
       trailing={
         <Pressable
           onPress={() => setVisible((v) => !v)}
