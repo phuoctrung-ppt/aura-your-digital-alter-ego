@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
 import { Text, TextInput, View, type TextInputProps } from "react-native";
+import { useResolvedTheme, chromeColors } from "../../../lib/theme";
+
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: asset-pack N/A — product chrome
 
 type AuthTextFieldProps = {
   label: string;
@@ -8,7 +12,6 @@ type AuthTextFieldProps = {
   /** When set, renders secure entry + optional trailing slot (eye toggle). */
   secureTextEntry?: boolean;
   trailing?: ReactNode;
-  /** Stable Maestro / Detox selector (optional). */
   testID?: string;
 } & Pick<
   TextInputProps,
@@ -24,7 +27,7 @@ type AuthTextFieldProps = {
 >;
 
 /**
- * Auth input — Design Contract:
+ * Auth input — Design Contract UI v3:
  * height 48, radius 8, pad-x 16, elevated fill, border 1, label visible above (meta).
  */
 export function AuthTextField({
@@ -37,6 +40,9 @@ export function AuthTextField({
   testID,
   ...inputProps
 }: AuthTextFieldProps) {
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
+
   return (
     <View className="w-full">
       <Text
@@ -52,7 +58,7 @@ export function AuthTextField({
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry}
-          placeholderTextColor="#6B7A94"
+          placeholderTextColor={colors.textMuted}
           accessibilityLabel={accessibilityLabel ?? label}
           testID={testID}
           {...inputProps}

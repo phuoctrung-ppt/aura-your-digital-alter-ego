@@ -9,7 +9,7 @@ import { createClientTurnId } from "../../src/lib/id";
 import { homeCopy } from "../../src/lib/i18n";
 import { useNetworkStatus } from "../../src/lib/network/useNetworkStatus";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 /**

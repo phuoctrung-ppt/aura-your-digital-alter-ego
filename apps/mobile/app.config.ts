@@ -6,8 +6,10 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  *
  * Static fields also live in app.json; this file merges runtime `extra`.
  *
- * userInterfaceStyle: "dark" — Aura mobile is dark-first (canvas #0B1220).
- * Prefer explicit dark over "automatic" until light theme tokens exist.
+ * userInterfaceStyle: "automatic" — UI v3 dual theme (system default + Settings).
+ * Splash stays #040d1a. ThemeProvider drives NativeWind class light|dark.
+ * DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+ * DESIGN-GATE: asset-pack N/A — product chrome
  */
 export default ({ config }: ConfigContext): ExpoConfig => {
   const base = config as ExpoConfig;
@@ -18,8 +20,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     version: "0.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
-    userInterfaceStyle: "dark",
+    userInterfaceStyle: "automatic",
     scheme: "aura",
+    // Splash stays #040d1a (app.json); do not redeclare here — ExpoConfig typing omits splash.
     ios: {
       ...(base.ios ?? {}),
       supportsTablet: true,
@@ -29,7 +32,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...(base.android ?? {}),
       package: "app.aura.mobile",
       adaptiveIcon: {
-        backgroundColor: "#0B1220",
+        backgroundColor: "#040d1a",
         foregroundImage: "./assets/android-icon-foreground.png",
         backgroundImage: "./assets/android-icon-background.png",
         monochromeImage: "./assets/android-icon-monochrome.png",

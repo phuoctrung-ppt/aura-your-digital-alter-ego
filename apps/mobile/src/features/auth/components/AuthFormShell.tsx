@@ -9,19 +9,24 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authCopy } from "../copy";
 
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: asset-pack N/A — product chrome
+
 type AuthFormShellProps = PropsWithChildren<{
   /** Screen title — e.g. login_cta / register_cta from authCopy */
   title: string;
 }>;
 
 /**
- * Auth chrome — mobile_stack shell.
- * Layout: SafeArea, pad-x 20, display wordmark, tagline, title, children.
- * Spec: docs/design/2026-08-17-aura-mobile-mvp.spec.md + wire §1.
+ * Auth chrome — mobile_stack shell, dual-theme navy/cyan.
+ * Layout: SafeArea, pad-x 20, display wordmark 30/700, tagline, title 24/600.
  */
 export function AuthFormShell({ title, children }: AuthFormShellProps) {
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top", "bottom", "left", "right"]}>
+    <SafeAreaView
+      className="flex-1 bg-app"
+      edges={["top", "bottom", "left", "right"]}
+    >
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}

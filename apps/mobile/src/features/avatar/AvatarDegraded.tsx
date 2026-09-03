@@ -1,12 +1,13 @@
 import { Text, View } from "react-native";
 import type { AvatarDegradedProps } from "./types";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
+// WRAP ONLY — force_dark stage chrome; FSM labels unchanged.
 
 /**
  * Static portrait + opacity/scale pulse for FPS / thermal degraded path (SP-1).
- * Keeps FSM labels accurate; talk accent uses Design Contract `#2DD4BF` only.
+ * Keeps FSM labels accurate; talk accent uses Design Contract cyan (`#00e5ff`) only.
  */
 export function AvatarDegraded({
   fsm,
@@ -25,8 +26,8 @@ export function AvatarDegraded({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 16,
-        backgroundColor: "#141C2E",
+        borderRadius: 20,
+        backgroundColor: "#040d1a",
         borderWidth: 1,
         borderColor: "#243047",
       }}
@@ -37,9 +38,9 @@ export function AvatarDegraded({
           width: 96,
           height: 96,
           borderRadius: 9999,
-          backgroundColor: "#1B2538",
+          backgroundColor: "#101826",
           borderWidth: 2,
-          borderColor: talkAccent ? "#2DD4BF" : "#33415C",
+          borderColor: talkAccent ? "#00e5ff" : "#33415C",
           alignItems: "center",
           justifyContent: "center",
           marginBottom: 16,

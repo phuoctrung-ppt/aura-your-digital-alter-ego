@@ -1,8 +1,10 @@
 import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import { settingsCopy } from "../../../lib/i18n";
+import { chromeColors, useResolvedTheme } from "../../../lib/theme";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
+// DESIGN-GATE: sheet radius 28 · destructive = danger (not accent)
 
 type WipeHistorySheetProps = {
   visible: boolean;
@@ -12,7 +14,7 @@ type WipeHistorySheetProps = {
 };
 
 /**
- * Wipe confirmation sheet — destructive confirm enabled (M9).
+ * Wipe confirmation sheet — radius 28, dual-theme scrim + elevated panel.
  * Parent owns API call + success feedback; busy blocks double-submit.
  */
 export function WipeHistorySheet({
@@ -21,6 +23,9 @@ export function WipeHistorySheet({
   onCancel,
   onConfirm,
 }: WipeHistorySheetProps) {
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
+
   return (
     <Modal
       visible={visible}
@@ -35,15 +40,15 @@ export function WipeHistorySheet({
           flex: 1,
           alignItems: "center",
           justifyContent: "flex-end",
-          backgroundColor: "rgba(11, 18, 32, 0.72)",
+          backgroundColor: colors.bgOverlay,
         }}
       >
         <View
           style={{
             width: "100%",
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            backgroundColor: "#141C2E",
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            backgroundColor: colors.bgElevated,
             paddingHorizontal: 24,
             paddingTop: 24,
             paddingBottom: 32,
@@ -52,10 +57,10 @@ export function WipeHistorySheet({
           <Text
             style={{
               marginBottom: 8,
-              color: "#F5F7FA",
-              fontSize: 22,
+              color: colors.text,
+              fontSize: 24,
               fontWeight: "600",
-              lineHeight: 28,
+              lineHeight: 30,
             }}
           >
             {settingsCopy.wipe_title}
@@ -63,7 +68,7 @@ export function WipeHistorySheet({
           <Text
             style={{
               marginBottom: 24,
-              color: "#A8B3C7",
+              color: colors.textSecondary,
               fontSize: 16,
               fontWeight: "400",
               lineHeight: 24,
@@ -84,13 +89,13 @@ export function WipeHistorySheet({
               justifyContent: "center",
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: "#33415C",
+              borderColor: colors.borderStrong,
               opacity: busy ? 0.5 : 1,
             }}
           >
             <Text
               style={{
-                color: "#F5F7FA",
+                color: colors.text,
                 fontSize: 16,
                 fontWeight: "600",
                 lineHeight: 20,
@@ -110,18 +115,16 @@ export function WipeHistorySheet({
               alignItems: "center",
               justifyContent: "center",
               borderRadius: 12,
-              borderWidth: 1,
-              borderColor: "rgba(248, 113, 113, 0.5)",
-              backgroundColor: "rgba(248, 113, 113, 0.1)",
+              backgroundColor: colors.danger,
               opacity: busy ? 0.6 : 1,
             }}
           >
             {busy ? (
-              <ActivityIndicator color="#F87171" />
+              <ActivityIndicator color={colors.textOnDanger} />
             ) : (
               <Text
                 style={{
-                  color: "#F87171",
+                  color: colors.textOnDanger,
                   fontSize: 16,
                   fontWeight: "600",
                   lineHeight: 20,

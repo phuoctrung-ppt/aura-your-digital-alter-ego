@@ -74,13 +74,13 @@ export function AvatarModel({
         <meshStandardMaterial color="#F5F7FA" roughness={0.4} />
       </mesh>
 
-      {/* Talk accent cue ring (Design Contract: #2DD4BF only) */}
+      {/* Talk accent cue ring (Design Contract: Aura cyan #00e5ff only) */}
       {fsm === "talk" ? (
         <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.62, 0.018, 8, 48]} />
           <meshStandardMaterial
-            color="#2DD4BF"
-            emissive="#2DD4BF"
+            color="#00e5ff"
+            emissive="#00e5ff"
             emissiveIntensity={0.35}
             roughness={0.5}
           />

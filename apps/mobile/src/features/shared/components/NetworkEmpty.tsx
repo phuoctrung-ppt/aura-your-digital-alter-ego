@@ -1,8 +1,9 @@
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { networkCopy } from "../../../lib/i18n";
+import { chromeColors, useResolvedTheme } from "../../../lib/theme";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 type NetworkEmptyProps = {
@@ -16,13 +17,16 @@ type NetworkEmptyProps = {
  * Blocks session start / shows on home when offline.
  */
 export function NetworkEmpty({ onRetry, fullPage = true }: NetworkEmptyProps) {
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
+
   const body = (
     <View
       style={{
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#0B1220",
+        backgroundColor: colors.bgApp,
         paddingHorizontal: 20,
       }}
     >
@@ -31,9 +35,9 @@ export function NetworkEmpty({ onRetry, fullPage = true }: NetworkEmptyProps) {
           width: 64,
           height: 64,
           borderRadius: 16,
-          backgroundColor: "#1B2538",
+          backgroundColor: colors.bgMuted,
           borderWidth: 1,
-          borderColor: "#33415C",
+          borderColor: colors.glassBorder,
           alignItems: "center",
           justifyContent: "center",
           marginBottom: 16,
@@ -41,16 +45,18 @@ export function NetworkEmpty({ onRetry, fullPage = true }: NetworkEmptyProps) {
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        <Text style={{ color: "#6B7A94", fontSize: 22, fontWeight: "600" }}>
+        <Text
+          style={{ color: colors.textMuted, fontSize: 22, fontWeight: "600" }}
+        >
           ⌁
         </Text>
       </View>
       <Text
         style={{
-          color: "#F5F7FA",
-          fontSize: 22,
+          color: colors.text,
+          fontSize: 24,
           fontWeight: "600",
-          lineHeight: 28,
+          lineHeight: 30,
           marginBottom: 8,
           textAlign: "center",
         }}
@@ -59,7 +65,7 @@ export function NetworkEmpty({ onRetry, fullPage = true }: NetworkEmptyProps) {
       </Text>
       <Text
         style={{
-          color: "#A8B3C7",
+          color: colors.textSecondary,
           fontSize: 16,
           fontWeight: "400",
           lineHeight: 24,
@@ -76,17 +82,18 @@ export function NetworkEmpty({ onRetry, fullPage = true }: NetworkEmptyProps) {
         style={{
           height: 48,
           minWidth: 160,
+          minHeight: 44,
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 12,
           borderWidth: 1,
-          borderColor: "#33415C",
+          borderColor: colors.borderStrong,
           paddingHorizontal: 16,
         }}
       >
         <Text
           style={{
-            color: "#F5F7FA",
+            color: colors.text,
             fontSize: 16,
             fontWeight: "600",
             lineHeight: 20,
@@ -103,7 +110,10 @@ export function NetworkEmpty({ onRetry, fullPage = true }: NetworkEmptyProps) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0B1220" }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.bgApp }}
+      edges={["top"]}
+    >
       {body}
     </SafeAreaView>
   );

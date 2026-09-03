@@ -80,3 +80,7 @@ docs/*
 .aisdlc
 .memory
 guide-gcp/*
+
+.img2threejs/*
+textures/*
+mockup/*

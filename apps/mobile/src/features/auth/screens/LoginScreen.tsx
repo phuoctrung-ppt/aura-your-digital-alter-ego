@@ -9,6 +9,9 @@ import { AuthTextField } from "../components/AuthTextField";
 import { PasswordField } from "../components/PasswordField";
 import { authCopy } from "../copy";
 
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: asset-pack N/A — product chrome
+
 type LoginScreenProps = {
   onGoRegister: () => void;
 };

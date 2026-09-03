@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -26,18 +27,21 @@ import {
 import { createClientTurnId } from "../../../lib/id";
 import { personaLabel, sessionCopy } from "../../../lib/i18n";
 import { useNetworkStatus } from "../../../lib/network/useNetworkStatus";
+import { forceDarkStage, stageColors } from "../../../lib/theme";
 import { voiceSocket } from "../../../lib/voice/voice-socket";
 import { AvatarStage } from "../../avatar";
 import { ErrorBanner, NetworkEmpty } from "../../shared";
 import { MicPermissionSheet } from "../components/MicPermissionSheet";
 import { PttButton } from "../components/PttButton";
+import { SessionCaption } from "../components/SessionCaption";
 import { SafetyBanner } from "../safety";
 import { Waveform } from "../components/Waveform";
 import type { SessionUiState } from "../types";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 // DESIGN-GATE: states.safety_mode = info_banner; PTT remains holdable (not disabled by showSafety)
+// DESIGN-GATE: session force_dark · overlay_minimal · avatar ~68% · PTT 80/88 · caption optional
 
 type SessionScreenProps = {
   sessionId?: string;
@@ -62,7 +66,8 @@ function chipLabel(state: SessionUiState): string {
 }
 
 /**
- * Session presence — avatar stage (~58%) + waveform + PTT hold-to-talk.
+ * Session presence — force_dark stage (~68%) + overlay_minimal chrome +
+ * waveform 36 + optional caption + PTT hold-to-talk (80 visual / 88 hit).
  * Primary transport: Socket.IO `/v1/voice` with SP-4 **segment_m4a** uplink —
  * one continuous HIGH_QUALITY recording for the whole hold, stopped once on
  * release, then chunked into ≤64 KiB `audio.frame`s (server concatenates
@@ -88,6 +93,7 @@ export function SessionScreen({
   const [safetyResources, setSafetyResources] = useState<
     SafetyResource[] | undefined
   >(undefined);
+  const [captionText, setCaptionText] = useState("");
   const [turnError, setTurnError] = useState<string | null>(null);
   const [micDeniedVisible, setMicDeniedVisible] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -184,6 +190,7 @@ export function SessionScreen({
             setShowSafety(true);
             // resources arrive on turn.done; keep banner visible early
           }
+          setCaptionText(e.text ?? "");
           setAvatarCue(e.avatarCue ?? "talk");
           setUiState("talk");
         },
@@ -339,6 +346,7 @@ export function SessionScreen({
           setShowSafety(true);
           setSafetyResources(turn.safetyResources);
         }
+        setCaptionText(turn.assistantText ?? "");
         setAvatarCue(turn.avatarCue);
         setUiState("talk");
         // REST returns a single audioUrl — publish via playTurnAudio registry for lip-sync.
@@ -503,116 +511,42 @@ export function SessionScreen({
     );
   }
 
+  const ambientTint =
+    personaSlug === "native-buddy"
+      ? "rgba(139, 92, 246, 0.16)"
+      : stageColors.accentMuted;
+
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: "#0B1220" }}
+      style={{ flex: 1, backgroundColor: stageColors.bg }}
       edges={["top", "bottom"]}
     >
-      <View
-        style={{
-          height: 56,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 20,
-        }}
-      >
-        <Pressable
-          onPress={() => {
-            holdActive.current = false;
-            chunkPlayer.stop();
-            onBack?.();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={sessionCopy.back_a11y}
-          style={{
-            height: 44,
-            minWidth: 44,
-            justifyContent: "center",
-          }}
-        >
-          <Text
-            style={{
-              color: "#2DD4BF",
-              fontSize: 16,
-              fontWeight: "600",
-              lineHeight: 20,
-            }}
-          >
-            ←
-          </Text>
-        </Pressable>
-        <Text
-          style={{
-            color: "#F5F7FA",
-            fontSize: 16,
-            fontWeight: "400",
-            lineHeight: 24,
-          }}
-        >
-          {name}
-        </Text>
-        <View style={{ minWidth: 44 }} />
-      </View>
+      {/* Session always light-content on force_dark stage */}
+      <StatusBar style={forceDarkStage.statusBarStyle} />
 
-      <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 16 }}>
-        {showSafety ? (
-          <View style={{ marginBottom: 12 }}>
-            <SafetyBanner
-              resources={safetyResources}
-              onDismiss={() => setShowSafety(false)}
-            />
-          </View>
-        ) : null}
-
-        {turnError ? (
-          <ErrorBanner
-            message={turnError}
-            onRetry={() => setTurnError(null)}
-          />
-        ) : null}
-
-        {connectError ? (
-          <ErrorBanner
-            message={connectError}
-            onRetry={() => setConnectError(null)}
-          />
-        ) : null}
-
-        {!sessionId ? (
-          <ErrorBanner message={sessionCopy.error_connect} />
-        ) : null}
-
+      <View style={{ flex: 1 }}>
+        {/* Soft persona ambient glow behind stage (non-interactive) */}
         <View
+          pointerEvents="none"
           style={{
+            position: "absolute",
+            top: "18%",
             alignSelf: "center",
+            width: 280,
+            height: 280,
             borderRadius: 9999,
-            backgroundColor: "#141C2E",
-            borderWidth: 1,
-            borderColor: "#243047",
-            paddingHorizontal: 12,
-            paddingVertical: 4,
-            marginBottom: 12,
+            backgroundColor: ambientTint,
+            opacity: 0.9,
           }}
-        >
-          <Text
-            style={{
-              color: "#A8B3C7",
-              fontSize: 13,
-              fontWeight: "500",
-              lineHeight: 18,
-            }}
-          >
-            {chipLabel(uiState)}
-          </Text>
-        </View>
+        />
 
+        {/* Avatar stage owns ~68% of content below overlay chrome */}
         <View
           style={{
-            flexGrow: 0.58,
+            flexGrow: 0.68,
             flexShrink: 1,
-            flexBasis: "58%",
-            marginBottom: 16,
+            flexBasis: "68%",
+            minHeight: 280,
           }}
         >
           <AvatarStage
@@ -624,25 +558,152 @@ export function SessionScreen({
           />
         </View>
 
-        <Waveform state={uiState} />
+        {/* overlay_minimal — circular glass back + thin glass status chip */}
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 56,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 20,
+          }}
+        >
+          <Pressable
+            onPress={() => {
+              holdActive.current = false;
+              chunkPlayer.stop();
+              onBack?.();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={sessionCopy.back_a11y}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 9999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(10, 22, 40, 0.88)",
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.08)",
+            }}
+          >
+            <Text
+              style={{
+                color: stageColors.text,
+                fontSize: 18,
+                fontWeight: "600",
+                lineHeight: 22,
+              }}
+            >
+              ←
+            </Text>
+          </Pressable>
+
+          <View
+            style={{
+              height: 28,
+              borderRadius: 9999,
+              backgroundColor: "rgba(10, 22, 40, 0.88)",
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              paddingHorizontal: 12,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{
+                color: stageColors.textSecondary,
+                fontSize: 13,
+                fontWeight: "500",
+                lineHeight: 18,
+              }}
+              numberOfLines={1}
+            >
+              {chipLabel(uiState)}
+            </Text>
+          </View>
+
+          <View style={{ minWidth: 44 }} />
+        </View>
+
+        {/* Bottom vignette under waveform / PTT chrome */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 220,
+            backgroundColor: stageColors.vignette,
+          }}
+        />
 
         <View
           style={{
-            marginTop: 24,
-            marginBottom: 16,
-            alignItems: "center",
+            paddingHorizontal: 20,
+            paddingBottom: 16,
+            paddingTop: 12,
           }}
         >
-          <PttButton
-            state={uiState}
-            disabled={!sessionId}
-            onPressIn={() => {
-              void startHold();
-            }}
-            onPressOut={() => {
-              void finishHold();
-            }}
+          {showSafety ? (
+            <View style={{ marginBottom: 12 }}>
+              <SafetyBanner
+                resources={safetyResources}
+                onDismiss={() => setShowSafety(false)}
+              />
+            </View>
+          ) : null}
+
+          <SessionCaption
+            text={captionText}
+            visible={uiState === "talk" && Boolean(captionText)}
           />
+
+          {turnError ? (
+            <ErrorBanner
+              message={turnError}
+              onRetry={() => setTurnError(null)}
+            />
+          ) : null}
+
+          {connectError ? (
+            <ErrorBanner
+              message={connectError}
+              onRetry={() => setConnectError(null)}
+            />
+          ) : null}
+
+          {!sessionId ? (
+            <ErrorBanner message={sessionCopy.error_connect} />
+          ) : null}
+
+          <Waveform state={uiState} />
+
+          <View
+            style={{
+              marginTop: 16,
+              marginBottom: 0,
+              alignItems: "center",
+            }}
+          >
+            <PttButton
+              state={uiState}
+              disabled={!sessionId}
+              onPressIn={() => {
+                void startHold();
+              }}
+              onPressOut={() => {
+                void finishHold();
+              }}
+            />
+          </View>
         </View>
       </View>
 

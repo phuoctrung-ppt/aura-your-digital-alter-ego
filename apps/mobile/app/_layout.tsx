@@ -1,21 +1,22 @@
 import "../global.css";
 
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useEffect, type ReactNode } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useColorScheme } from "nativewind";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionProvider, useSession } from "../src/lib/session";
+import { SPLASH_BG, ThemeProvider } from "../src/lib/theme";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 function HydratingSplash() {
   return (
-    <View className="flex-1 items-center justify-center bg-app">
-      <ActivityIndicator color="#2DD4BF" size="large" />
+    <View
+      className="flex-1 items-center justify-center"
+      style={{ backgroundColor: SPLASH_BG }}
+    >
+      <ActivityIndicator color="#00e5ff" size="large" />
     </View>
   );
 }
@@ -23,6 +24,7 @@ function HydratingSplash() {
 /**
  * Root stack — auth | tabs | session.
  * Auth gate redirects live in index + group layouts.
+ * ThemeProvider resolves system/light/dark + NativeWind class mode.
  */
 function RootNavigator() {
   const { isHydrating } = useSession();
@@ -32,7 +34,13 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B1220" } }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        // Splash / default stack canvas stays dark; ThemeProvider owns chrome canvas.
+        contentStyle: { backgroundColor: SPLASH_BG },
+      }}
+    >
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
@@ -44,26 +52,14 @@ function RootNavigator() {
   );
 }
 
-function DarkSchemeLock({ children }: { children: ReactNode }) {
-  const { setColorScheme } = useColorScheme();
-
-  useEffect(() => {
-    // Requires tailwind `darkMode: "class"` — media mode throws from css-interop.
-    setColorScheme("dark");
-  }, [setColorScheme]);
-
-  return <>{children}</>;
-}
-
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} className="dark">
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <SessionProvider>
-          <DarkSchemeLock>
+          <ThemeProvider>
             <RootNavigator />
-            <StatusBar style="light" />
-          </DarkSchemeLock>
+          </ThemeProvider>
         </SessionProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
