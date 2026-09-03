@@ -15,8 +15,9 @@ import {
   type AvatarCue,
   type PersonaSlug,
   type SafetyResource,
+  type SessionReplyLocale,
 } from "@aura/contracts";
-import { turnsApi } from "../../../lib/api";
+import { sessionsApi, turnsApi } from "../../../lib/api";
 import { arrayBufferToBase64, readUriAsArrayBuffer } from "../../../lib/audio/audio-utils";
 import { chunkPlayer } from "../../../lib/audio/chunk-player";
 import { playTurnAudio } from "../../../lib/audio/play-turn-audio";
@@ -29,23 +30,26 @@ import { personaLabel, sessionCopy } from "../../../lib/i18n";
 import { useNetworkStatus } from "../../../lib/network/useNetworkStatus";
 import { forceDarkStage, stageColors } from "../../../lib/theme";
 import { voiceSocket } from "../../../lib/voice/voice-socket";
-import { AvatarStage } from "../../avatar";
+import { CircleAvatar } from "../../avatar";
 import { ErrorBanner, NetworkEmpty } from "../../shared";
+import { CallControls } from "../components/CallControls";
 import { MicPermissionSheet } from "../components/MicPermissionSheet";
-import { PttButton } from "../components/PttButton";
 import { SessionCaption } from "../components/SessionCaption";
 import { SafetyBanner } from "../safety";
 import { Waveform } from "../components/Waveform";
 import type { SessionUiState } from "../types";
 
-// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: docs/design/2026-09-03-calling-ui.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 // DESIGN-GATE: states.safety_mode = info_banner; PTT remains holdable (not disabled by showSafety)
-// DESIGN-GATE: session force_dark · overlay_minimal · avatar ~68% · PTT 80/88 · caption optional
+// DESIGN-GATE: session force_dark #040d1a · circle_2d 168 · stage ~58% · PTT 80/88 · CTA mic/end 48
+// DESIGN-GATE: R3F primary FORBIDDEN — CircleAvatar only on default Session path
 
 type SessionScreenProps = {
   sessionId?: string;
   personaSlug?: PersonaSlug;
+  /** Session reply locale from create — read-only chip (not a switch). */
+  locale?: SessionReplyLocale;
   onBack?: () => void;
 };
 
@@ -65,22 +69,20 @@ function chipLabel(state: SessionUiState): string {
   }
 }
 
+function localeChipText(locale: SessionReplyLocale | undefined): string {
+  return (locale ?? "vi").toUpperCase();
+}
+
 /**
- * Session presence — force_dark stage (~68%) + overlay_minimal chrome +
- * waveform 36 + optional caption + PTT hold-to-talk (80 visual / 88 hit).
- * Primary transport: Socket.IO `/v1/voice` with SP-4 **segment_m4a** uplink —
- * one continuous HIGH_QUALITY recording for the whole hold, stopped once on
- * release, then chunked into ≤64 KiB `audio.frame`s (server concatenates
- * before decode). Native = AAC-in-MP4 `.m4a`; **Expo web** MediaRecorder emits
- * `audio/webm` under the same wire encoding — API sniffs EBML and decodes as
- * WebM (no `moov`). Rolling stop/restart was abandoned: short native clips
- * often lack a `moov` atom and Speech v1 cannot ingest AAC/M4A without a
- * complete container + ffmpeg. REST multipart is opt-in via
- * `EXPO_PUBLIC_VOICE_REST_FALLBACK=1` only.
+ * Session presence — calling-UI circle avatar (ADR-0006) + overlay_minimal chrome +
+ * waveform 36 + optional caption + CTA row (mic · PTT · End call).
+ * Primary transport: Socket.IO `/v1/voice` with SP-4 **segment_m4a** uplink.
+ * REST multipart is opt-in via `EXPO_PUBLIC_VOICE_REST_FALLBACK=1` only.
  */
 export function SessionScreen({
   sessionId,
   personaSlug,
+  locale = "vi",
   onBack,
 }: SessionScreenProps) {
   const { isOnline, refresh: refreshNetwork } = useNetworkStatus();
@@ -96,7 +98,9 @@ export function SessionScreen({
   const [captionText, setCaptionText] = useState("");
   const [turnError, setTurnError] = useState<string | null>(null);
   const [micDeniedVisible, setMicDeniedVisible] = useState(false);
+  const [micGranted, setMicGranted] = useState(true);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [ending, setEnding] = useState(false);
 
   const recordingStartedAt = useRef<number | null>(null);
   const holdActive = useRef(false);
@@ -110,6 +114,12 @@ export function SessionScreen({
   const useRestFallback = isVoiceRestFallbackEnabled();
 
   const name = useMemo(() => personaLabel(personaSlug), [personaSlug]);
+  const ambientTint =
+    personaSlug === "native-buddy"
+      ? "rgba(139, 92, 246, 0.16)"
+      : stageColors.accentMuted;
+  const tintHairline =
+    personaSlug === "native-buddy" ? "#8b5cf6" : stageColors.accent;
 
   /**
    * Read a finalized recorder URI and emit as one or more `segment_m4a` frames.
@@ -188,7 +198,6 @@ export function SessionScreen({
           if (!mounted.current) return;
           if (e.safetyMode === "safe-listener") {
             setShowSafety(true);
-            // resources arrive on turn.done; keep banner visible early
           }
           setCaptionText(e.text ?? "");
           setAvatarCue(e.avatarCue ?? "talk");
@@ -212,7 +221,6 @@ export function SessionScreen({
             setSafetyResources(e.safetyResources);
           }
           setAvatarCue(e.avatarCue ?? "talk");
-          // Stay in talk until chunk queue drains; idle when playback finishes.
           chunkPlayer.setListeners({
             onPlaybackFinished: () => {
               if (!mounted.current) return;
@@ -220,10 +228,6 @@ export function SessionScreen({
               setAvatarCue("idle");
             },
           });
-          // If no chunks were queued, return to idle immediately.
-          if (e.audioUrl === undefined) {
-            // chunks may still be playing; listener handles idle
-          }
         },
         onError: (e) => {
           if (!mounted.current) return;
@@ -253,11 +257,14 @@ export function SessionScreen({
     try {
       const result = await requestRecordingPermissionsAsync();
       if (!result.granted) {
+        setMicGranted(false);
         setMicDeniedVisible(true);
         return false;
       }
+      setMicGranted(true);
       return true;
     } catch {
+      setMicGranted(false);
       setMicDeniedVisible(true);
       return false;
     }
@@ -291,7 +298,6 @@ export function SessionScreen({
       : 0;
     recordingStartedAt.current = null;
 
-    // Mock UI path — no socket / REST.
     if (isApiMockEnabled()) {
       try {
         if (recorder.isRecording) await recorder.stop();
@@ -314,7 +320,6 @@ export function SessionScreen({
       return;
     }
 
-    // Opt-in REST multipart fallback (degraded clients / CI).
     if (useRestFallback) {
       let audioUri: string | null = null;
       try {
@@ -338,7 +343,7 @@ export function SessionScreen({
           mimeType: "audio/m4a",
           fileName: "turn.m4a",
           clientDurationMs: durationMs || undefined,
-          clientLocale: "vi",
+          clientLocale: locale,
           clientTurnId: clientTurnIdRef.current ?? createClientTurnId(),
         });
         const turn = response.data;
@@ -349,7 +354,6 @@ export function SessionScreen({
         setCaptionText(turn.assistantText ?? "");
         setAvatarCue(turn.avatarCue);
         setUiState("talk");
-        // REST returns a single audioUrl — publish via playTurnAudio registry for lip-sync.
         if (turn.audioUrl) {
           await playTurnAudio(turn.audioUrl);
         } else {
@@ -373,9 +377,6 @@ export function SessionScreen({
       return;
     }
 
-    // Primary WSS path: stop the single hold recording, stream it as one or
-    // more `segment_m4a` frames, then turn.end. Server concatenates frames
-    // before ffmpeg decode (complete m4a needed for moov).
     try {
       await flushFinalRecording();
       const clientTurnId = clientTurnIdRef.current;
@@ -387,7 +388,6 @@ export function SessionScreen({
         clientDurationMs: durationMs || undefined,
         lastSeq: lastSeqRef.current,
       });
-      // UI stays in processing until assistant.text / tts.chunk / turn.done.
     } catch {
       finishing.current = false;
       if (mounted.current) {
@@ -397,9 +397,8 @@ export function SessionScreen({
       }
     } finally {
       clientTurnIdRef.current = null;
-      // keep lastSeq until next startHold resets it
     }
-  }, [flushFinalRecording, recorder, sessionId, useRestFallback]);
+  }, [flushFinalRecording, locale, recorder, sessionId, useRestFallback]);
 
   finishHoldRef.current = finishHold;
 
@@ -421,7 +420,8 @@ export function SessionScreen({
       uiState === "processing" ||
       uiState === "talk" ||
       uiState === "recording" ||
-      finishing.current
+      finishing.current ||
+      ending
     ) {
       return;
     }
@@ -462,17 +462,13 @@ export function SessionScreen({
         voiceSocket.startTurn({
           sessionId,
           clientTurnId,
-          clientLocale: "vi",
+          clientLocale: locale,
           encoding: "segment_m4a",
-          // Required on wire type after Zod defaults; ignored for segment encodings.
           sampleRateHz: 16_000,
           channels: 1,
         });
       }
 
-      // One continuous recording for the whole hold — finalize once on release.
-      // Rolling stop/restart produced incomplete MP4s (no moov) that Speech
-      // could not decode, and the server only runs STT at turn.end anyway.
       recorder.record({ forDuration: TURN_AUDIO_MAX_DURATION_MS / 1000 });
       recordingStartedAt.current = Date.now();
       holdActive.current = true;
@@ -493,13 +489,40 @@ export function SessionScreen({
       }
     }
   }, [
+    ending,
     ensureMicPermission,
     isOnline,
+    locale,
     recorder,
     sessionId,
     uiState,
     useRestFallback,
   ]);
+
+  const endCall = useCallback(async () => {
+    if (ending) return;
+    setEnding(true);
+    holdActive.current = false;
+    chunkPlayer.stop();
+    try {
+      if (recorder.isRecording) {
+        await recorder.stop();
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      if (sessionId && !isApiMockEnabled()) {
+        await sessionsApi.endSession(sessionId);
+      }
+    } catch {
+      // Still navigate away — hard-end UX; retry not required for MVP.
+    } finally {
+      if (mounted.current) {
+        onBack?.();
+      }
+    }
+  }, [ending, onBack, recorder, sessionId]);
 
   if (isOnline === false) {
     return (
@@ -511,21 +534,14 @@ export function SessionScreen({
     );
   }
 
-  const ambientTint =
-    personaSlug === "native-buddy"
-      ? "rgba(139, 92, 246, 0.16)"
-      : stageColors.accentMuted;
-
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: stageColors.bg }}
       edges={["top", "bottom"]}
     >
-      {/* Session always light-content on force_dark stage */}
       <StatusBar style={forceDarkStage.statusBarStyle} />
 
       <View style={{ flex: 1 }}>
-        {/* Soft persona ambient glow behind stage (non-interactive) */}
         <View
           pointerEvents="none"
           style={{
@@ -540,25 +556,26 @@ export function SessionScreen({
           }}
         />
 
-        {/* Avatar stage owns ~68% of content below overlay chrome */}
+        {/* Circle stage ~58% (clamp 54–62) of content below overlay chrome */}
         <View
           style={{
-            flexGrow: 0.68,
+            flexGrow: 0.58,
             flexShrink: 1,
-            flexBasis: "68%",
-            minHeight: 280,
+            flexBasis: "58%",
+            minHeight: 240,
+            paddingTop: 56,
           }}
         >
-          <AvatarStage
+          <CircleAvatar
             state={uiState}
-            personaName={name}
             avatarCue={avatarCue}
+            personaName={name}
             avatarAssetKey={personaSlug}
-            degraded={process.env.EXPO_PUBLIC_AVATAR_DEGRADED === "1"}
+            tintColor={tintHairline}
           />
         </View>
 
-        {/* overlay_minimal — circular glass back + thin glass status chip */}
+        {/* overlay_minimal — back · persona/locale · status chip */}
         <View
           pointerEvents="box-none"
           style={{
@@ -571,6 +588,7 @@ export function SessionScreen({
             alignItems: "center",
             justifyContent: "space-between",
             paddingHorizontal: 20,
+            gap: 8,
           }}
         >
           <Pressable
@@ -606,6 +624,58 @@ export function SessionScreen({
 
           <View
             style={{
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
+            <Text
+              style={{
+                color: stageColors.text,
+                fontSize: 17,
+                fontWeight: "600",
+                lineHeight: 22,
+                flexShrink: 1,
+              }}
+              numberOfLines={1}
+            >
+              {name}
+            </Text>
+            <View
+              testID="session-locale-chip"
+              accessibilityLabel={sessionCopy.locale_chip_a11y.replace(
+                "{locale}",
+                localeChipText(locale),
+              )}
+              style={{
+                height: 28,
+                borderRadius: 9999,
+                backgroundColor: "rgba(10, 22, 40, 0.88)",
+                borderWidth: 1,
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                paddingHorizontal: 10,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: stageColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: "500",
+                  lineHeight: 18,
+                }}
+              >
+                {localeChipText(locale)}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
               height: 28,
               borderRadius: 9999,
               backgroundColor: "rgba(10, 22, 40, 0.88)",
@@ -614,6 +684,7 @@ export function SessionScreen({
               paddingHorizontal: 12,
               alignItems: "center",
               justifyContent: "center",
+              maxWidth: 120,
             }}
           >
             <Text
@@ -628,11 +699,8 @@ export function SessionScreen({
               {chipLabel(uiState)}
             </Text>
           </View>
-
-          <View style={{ minWidth: 44 }} />
         </View>
 
-        {/* Bottom vignette under waveform / PTT chrome */}
         <View
           pointerEvents="none"
           style={{
@@ -686,21 +754,23 @@ export function SessionScreen({
 
           <Waveform state={uiState} />
 
-          <View
-            style={{
-              marginTop: 16,
-              marginBottom: 0,
-              alignItems: "center",
-            }}
-          >
-            <PttButton
+          <View style={{ marginTop: 16 }}>
+            <CallControls
               state={uiState}
               disabled={!sessionId}
+              ending={ending}
+              micGranted={micGranted}
+              onMicPress={() => {
+                void ensureMicPermission();
+              }}
               onPressIn={() => {
                 void startHold();
               }}
               onPressOut={() => {
                 void finishHold();
+              }}
+              onEndCall={() => {
+                void endCall();
               }}
             />
           </View>

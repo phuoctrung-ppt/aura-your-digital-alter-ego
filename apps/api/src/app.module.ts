@@ -81,10 +81,17 @@ import { RealtimeModule } from "./realtime/realtime.module";
   ],
   controllers: [HealthController],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    // Jest e2e boots many auth/session/turn calls under one IP; route-level
+    // `@Throttle({ limit })` wins over ThrottlerModule.forRoot overrides and
+    // flakes with 429. Skip the global guard when NODE_ENV=test (setup-e2e).
+    ...(process.env.NODE_ENV === "test"
+      ? []
+      : [
+          {
+            provide: APP_GUARD,
+            useClass: ThrottlerGuard,
+          },
+        ]),
   ],
 })
 export class AppModule {}

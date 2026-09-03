@@ -47,7 +47,7 @@ EXPO_PUBLIC_API_MOCK=1 maestro test .maestro/smoke-login-persona-session.yaml
 
 | File | Intent |
 |---|---|
-| `smoke-login-persona-session.yaml` | login → home shows 2 personas → open session → PTT affordance (mock) |
+| `smoke-login-persona-session.yaml` | login → 2 personas → session circle avatar + PTT + end-call (mock) |
 
 ## Selectors / testIDs
 
@@ -60,7 +60,13 @@ Stable `testID`s (preferred by the YAML flow):
 | `login-submit` | Đăng nhập CTA |
 | `persona-tough-interviewer` | Tough Interviewer card |
 | `persona-native-buddy` | Native Buddy card |
+| `session-language-picker` | Home language pick before start (M15) |
+| `session-circle-avatar` | Calling-UI circle presence (M15) |
+| `session-waveform` | Talk/listen waveform (M15) |
+| `session-mic-affordance` | Mic chrome (decorative) |
 | `ptt-button` | Hold-to-talk control |
+| `session-end-call` | End-call CTA (M15) |
+| `session-locale-chip` | In-session locale chip (M15) |
 
 VN copy remains asserted as secondary (`Người phỏng vấn khắt khe`, `Bạn bản xứ`, `Giữ để nói`).
 

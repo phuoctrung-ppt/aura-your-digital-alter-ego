@@ -1,10 +1,12 @@
 /**
- * E2E — voice turn orchestrator under AI_PROVIDER_MODE=fake (T-M12-01).
+ * E2E — voice turn orchestrator under AI_PROVIDER_MODE=fake (T-M12-01 / M15 T7).
  * Never log transcripts / audio paths.
  */
 
 import { randomUUID } from "node:crypto";
 import request from "supertest";
+import { FakeTtsProvider } from "../src/ai/providers/fake-tts.provider";
+import type { TtsRequest } from "../src/ai/interfaces/tts-provider";
 import {
   authHeader,
   closeTestApp,
@@ -27,9 +29,16 @@ type TurnData = {
   safetyMode: string;
 };
 
+/** Seeded tough-interviewer voiceByLocale.providerVoiceId values (prisma/seed.ts). */
+const TOUGH_INTERVIEWER_VOICE = {
+  vi: "vi-VN-Neural2-D",
+  en: "en-US-Neural2-D",
+} as const;
+
 describe("Turns orchestrator (e2e)", () => {
   let ctx: TestAppContext;
   let wavPath: string;
+  let synthesizeSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -43,15 +52,30 @@ describe("Turns orchestrator (e2e)", () => {
   beforeEach(async () => {
     await truncateUserScopedData(ctx.prisma);
     delete process.env.FAKE_STT_TRANSCRIPT;
+    const fakeTts = ctx.app.get(FakeTtsProvider);
+    synthesizeSpy = jest.spyOn(fakeTts, "synthesize");
   });
 
-  async function createSession(accessToken: string): Promise<string> {
+  afterEach(() => {
+    synthesizeSpy?.mockRestore();
+  });
+
+  async function createSession(
+    accessToken: string,
+    locale: "vi" | "en" = "vi",
+  ): Promise<string> {
     const res = await request(ctx.httpServer)
       .post("/v1/sessions")
       .set(authHeader(accessToken))
-      .send({ personaSlug: "tough-interviewer", locale: "vi" })
+      .send({ personaSlug: "tough-interviewer", locale })
       .expect(201);
     return expectOkEnvelope<{ id: string }>(res.body).id;
+  }
+
+  function lastSynthesizeVoice(): string | undefined {
+    expect(synthesizeSpy).toHaveBeenCalled();
+    const req = synthesizeSpy.mock.calls.at(-1)?.[0] as TtsRequest | undefined;
+    return req?.voice;
   }
 
   it("multipart fake turn returns assistant + providers + normal safety", async () => {
@@ -167,5 +191,39 @@ describe("Turns orchestrator (e2e)", () => {
       .expect(200);
 
     expectOkEnvelope(mem.body);
+  });
+
+  it("passes persona voiceByLocale[vi] into FakeTts synthesize", async () => {
+    const user = await registerFreshUser(ctx.app, "turn-voice-vi");
+    const sessionId = await createSession(user.accessToken, "vi");
+
+    await request(ctx.httpServer)
+      .post(`/v1/sessions/${sessionId}/turns`)
+      .set(authHeader(user.accessToken))
+      .field("clientLocale", "vi")
+      .attach("audio", wavPath, {
+        filename: "silence.wav",
+        contentType: "audio/wav",
+      })
+      .expect(200);
+
+    expect(lastSynthesizeVoice()).toBe(TOUGH_INTERVIEWER_VOICE.vi);
+  });
+
+  it("passes persona voiceByLocale[en] into FakeTts synthesize", async () => {
+    const user = await registerFreshUser(ctx.app, "turn-voice-en");
+    const sessionId = await createSession(user.accessToken, "en");
+
+    await request(ctx.httpServer)
+      .post(`/v1/sessions/${sessionId}/turns`)
+      .set(authHeader(user.accessToken))
+      .field("clientLocale", "en")
+      .attach("audio", wavPath, {
+        filename: "silence.wav",
+        contentType: "audio/wav",
+      })
+      .expect(200);
+
+    expect(lastSynthesizeVoice()).toBe(TOUGH_INTERVIEWER_VOICE.en);
   });
 });

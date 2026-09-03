@@ -1,17 +1,14 @@
+import type { ImageSourcePropType } from "react-native";
+
 /**
- * avatarAssetKey → shared character asset map.
+ * avatarAssetKey → asset map.
  *
- * MVP rule (SP-1 / M8): **one shared mesh** for both personas.
- * Catalog keys `tough-interviewer` and `native-buddy` resolve to the same
- * `persona.glb` (optional `persona-lod-low.glb` for degraded FPS).
+ * **Primary (ADR-0006 / M15):** 2D calling-UI circle via PNG or initials.
+ * Expected paths (when art lands):
+ *   apps/mobile/assets/avatar/tough-interviewer.png
+ *   apps/mobile/assets/avatar/native-buddy.png
  *
- * Until a licensed GLB lands under `apps/mobile/assets/avatar/`, the stage
- * uses a procedural placeholder (no require() of missing binary).
- *
- * Expected paths (frontend-worker after art lands):
- *   apps/mobile/assets/avatar/persona.glb
- *   apps/mobile/assets/avatar/persona-lod-low.glb  (optional)
- *
+ * **Legacy (demoted):** shared GLB mesh for optional R3F AvatarStage only.
  * Do NOT invent a second persona mesh. Do NOT commit huge .blend sources.
  */
 
@@ -29,18 +26,36 @@ export type AvatarAssetRef = {
   proceduralPlaceholder: boolean;
 };
 
+/** Primary 2D circle asset — PNG source or initials fallback. */
+export type CircleAvatarAssetRef = {
+  key: string;
+  /** Metro Image source when PNG is bundled; null → initials. */
+  source: ImageSourcePropType | null;
+};
+
 const SHARED_REF: Omit<AvatarAssetRef, "key"> = {
   glbPath: SHARED_PERSONA_GLB_PATH,
   lodGlbPath: SHARED_PERSONA_LOD_GLB_PATH,
   proceduralPlaceholder: true,
 };
 
-/** Both MVP keys map to the same shared character. */
+/** Both MVP keys map to the same shared character (legacy R3F only). */
 const AVATAR_ASSET_MAP: Record<string, AvatarAssetRef> = {
   "tough-interviewer": { key: "tough-interviewer", ...SHARED_REF },
   "native-buddy": { key: "native-buddy", ...SHARED_REF },
 };
 
+/**
+ * PNG map for calling-UI circle. Empty until assets land under
+ * `apps/mobile/assets/avatar/*.png` — CircleAvatar falls back to initials.
+ * When adding art, wire `require("../../../assets/avatar/…")` here.
+ */
+const CIRCLE_PNG_MAP: Record<string, ImageSourcePropType> = {
+  // "tough-interviewer": require("../../../assets/avatar/tough-interviewer.png"),
+  // "native-buddy": require("../../../assets/avatar/native-buddy.png"),
+};
+
+/** Legacy GLB resolver — used only by demoted AvatarStage. */
 export function resolveAvatarAsset(
   avatarAssetKey?: string,
 ): AvatarAssetRef {
@@ -50,5 +65,16 @@ export function resolveAvatarAsset(
   return {
     key: avatarAssetKey ?? "shared-persona",
     ...SHARED_REF,
+  };
+}
+
+/** Primary circle avatar resolver (ADR-0006). */
+export function resolveCircleAvatarAsset(
+  avatarAssetKey?: string,
+): CircleAvatarAssetRef {
+  const key = avatarAssetKey ?? "shared-persona";
+  return {
+    key,
+    source: CIRCLE_PNG_MAP[key] ?? null,
   };
 }

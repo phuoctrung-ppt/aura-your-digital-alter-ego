@@ -3,9 +3,8 @@ import { AvatarDegraded, mapSessionToAvatarFsm } from "../../avatar";
 import type { SessionUiState } from "../types";
 
 /**
- * @deprecated Superseded by `features/avatar` (`AvatarStage`).
- * Thin adapter kept so stale imports compile during M8 cutover.
- * Prefer `AvatarStage` from `../../avatar` — delete when unused.
+ * @deprecated Prefer `CircleAvatar` from `../../avatar` (ADR-0006 calling UI).
+ * Thin adapter kept so stale imports compile; demoted R3F `AvatarStage` is legacy-only.
  */
 type AvatarPlaceholderProps = {
   state: SessionUiState;
