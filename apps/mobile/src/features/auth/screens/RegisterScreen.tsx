@@ -28,6 +28,9 @@ function mapRegisterError(err: unknown): string {
   return authCopy.error_generic;
 }
 
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: asset-pack N/A — product chrome
+
 /**
  * Auth Register — same layout as login; confirm password client-side match.
  * Primary Tạo tài khoản; secondary link → login.

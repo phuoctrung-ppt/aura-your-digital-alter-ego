@@ -1,8 +1,9 @@
 import { Linking, Pressable, Text, View } from "react-native";
 import type { SafetyResource } from "@aura/contracts";
 import { safetyCopy } from "../../../lib/i18n";
+import { stageColors } from "../../../lib/theme";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 // DESIGN-GATE: info_calm · padding 12 · radius 12 · dismiss "Đã hiểu"
 // DESIGN-GATE: PTT remains usable while banner is visible (session owner)
@@ -13,10 +14,9 @@ type SafetyBannerProps = {
 };
 
 /**
- * Safety mode banner (safe-listener) — calm info tone, PTT remains available.
+ * Safety mode banner (safe-listener) — calm info tone on force_dark stage.
  * Prefers server `safetyResources`; falls back to local `safetyCopy` phones.
- *
- * Owned by session/safety (M10). Shared barrel re-exports for stable imports.
+ * PTT must remain holdable while this is visible.
  */
 export function SafetyBanner({ onDismiss, resources }: SafetyBannerProps) {
   const fallbackResources: SafetyResource[] = [
@@ -46,12 +46,11 @@ export function SafetyBanner({ onDismiss, resources }: SafetyBannerProps) {
           gap: 8,
         }}
       >
-        {/* DESIGN-GATE: components.banner.icon info glyph 20 */}
         <Text
           accessibilityElementsHidden
           importantForAccessibility="no"
           style={{
-            color: "#38BDF8",
+            color: stageColors.info,
             fontSize: 16,
             fontWeight: "700",
             lineHeight: 20,
@@ -65,7 +64,7 @@ export function SafetyBanner({ onDismiss, resources }: SafetyBannerProps) {
         <Text
           style={{
             flex: 1,
-            color: "#F5F7FA",
+            color: stageColors.text,
             fontSize: 16,
             fontWeight: "600",
             lineHeight: 22,
@@ -76,7 +75,7 @@ export function SafetyBanner({ onDismiss, resources }: SafetyBannerProps) {
       </View>
       <Text
         style={{
-          color: "#A8B3C7",
+          color: stageColors.textSecondary,
           fontSize: 13,
           fontWeight: "500",
           lineHeight: 18,
@@ -102,7 +101,7 @@ export function SafetyBanner({ onDismiss, resources }: SafetyBannerProps) {
         >
           <Text
             style={{
-              color: "#38BDF8",
+              color: stageColors.info,
               fontSize: 13,
               fontWeight: "500",
               lineHeight: 18,
@@ -125,13 +124,13 @@ export function SafetyBanner({ onDismiss, resources }: SafetyBannerProps) {
           justifyContent: "center",
           borderRadius: 8,
           borderWidth: 1,
-          borderColor: "#33415C",
+          borderColor: stageColors.borderStrong,
           paddingHorizontal: 12,
         }}
       >
         <Text
           style={{
-            color: "#A8B3C7",
+            color: stageColors.textSecondary,
             fontSize: 16,
             fontWeight: "600",
             lineHeight: 20,

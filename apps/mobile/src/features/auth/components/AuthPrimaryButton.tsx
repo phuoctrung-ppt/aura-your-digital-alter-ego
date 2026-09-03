@@ -4,19 +4,22 @@ import {
   Text,
   type GestureResponderEvent,
 } from "react-native";
+import { useResolvedTheme, chromeColors } from "../../../lib/theme";
+
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: asset-pack N/A — product chrome
 
 type AuthPrimaryButtonProps = {
   label: string;
   onPress: (event: GestureResponderEvent) => void;
   loading?: boolean;
   disabled?: boolean;
-  /** Stable Maestro / Detox selector (optional). */
   testID?: string;
 };
 
 /**
- * Primary CTA — h=52, radius 12, accent fill, text-on-accent, full width.
- * Loading = spinner on button (states.loading auth).
+ * Primary CTA — h=52, radius 12, accent fill (cyan family), text-on-accent, full width.
+ * Light accent #007A88 (never raw #00e5ff as solid CTA). Loading = spinner on button.
  */
 export function AuthPrimaryButton({
   label,
@@ -25,6 +28,8 @@ export function AuthPrimaryButton({
   disabled = false,
   testID,
 }: AuthPrimaryButtonProps) {
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
   const isDisabled = disabled || loading;
 
   return (
@@ -40,7 +45,7 @@ export function AuthPrimaryButton({
       }`}
     >
       {loading ? (
-        <ActivityIndicator color="#042F2E" />
+        <ActivityIndicator color={colors.textOnAccent} />
       ) : (
         <Text className="text-button text-ink-on-accent">{label}</Text>
       )}

@@ -1,22 +1,27 @@
 import { View } from "react-native";
+import { chromeColors, useResolvedTheme } from "../../../lib/theme";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
-// DESIGN-GATE: History loading — exactly 6 skeleton rows h=72
+// DESIGN-GATE: History loading — exactly 6 skeleton rows h=88 · radius 16
 
 /** History loading — 6 skeleton rows matching HistorySessionRow height. */
 export function HistoryListSkeleton() {
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
+
   return (
     <View accessibilityLabel="loading">
       {Array.from({ length: 6 }).map((_, index) => (
         <View
           key={`history-skel-${index}`}
           style={{
-            minHeight: 72,
-            borderRadius: 12,
+            minHeight: 88,
+            height: 88,
+            borderRadius: 16,
             borderWidth: 1,
-            borderColor: "#243047",
-            backgroundColor: "#1B2538",
+            borderColor: colors.glassBorder,
+            backgroundColor: colors.bgMuted,
             paddingHorizontal: 16,
             paddingVertical: 12,
             marginBottom: 12,
@@ -30,7 +35,7 @@ export function HistoryListSkeleton() {
               height: 16,
               width: "45%",
               borderRadius: 8,
-              backgroundColor: "#243047",
+              backgroundColor: colors.border,
             }}
           />
           <View
@@ -38,7 +43,7 @@ export function HistoryListSkeleton() {
               height: 14,
               width: "70%",
               borderRadius: 8,
-              backgroundColor: "#243047",
+              backgroundColor: colors.border,
             }}
           />
         </View>

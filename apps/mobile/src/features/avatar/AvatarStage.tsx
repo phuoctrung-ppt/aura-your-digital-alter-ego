@@ -1,5 +1,6 @@
 import { Canvas } from "@react-three/fiber/native";
 import { View } from "react-native";
+import { stageColors } from "../../lib/theme";
 import { resolveAvatarAsset } from "./avatarAssets";
 import { AvatarDegraded } from "./AvatarDegraded";
 import { AvatarScene } from "./AvatarScene";
@@ -9,16 +10,16 @@ import { useAvatarFsm } from "./useAvatarFsm";
 import { useAvatarPlaybackBridge } from "./useAvatarPlaybackBridge";
 import { useLipSync } from "./useLipSync";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
-// Tokens: canvas #0B1220, stage #141C2E, talk accent #2DD4BF only
+// Tokens: force_dark stage via stageColors; WRAP ONLY — no FSM / lip-sync / R3F rewrite.
 
 function envFlagTrue(value: string | undefined): boolean {
   return value === "1" || value === "true";
 }
 
 /**
- * Session avatar stage host (~58% height owned by SessionScreen parent).
+ * Session avatar stage host (~68% height owned by SessionScreen parent).
  * Mounts R3F Canvas only while Session is mounted; tears down on leave.
  *
  * Import `@react-three/fiber/native` only. Remote JS debugging breaks GLView.
@@ -54,10 +55,10 @@ export function AvatarStage({
       style={{
         width: "100%",
         flex: 1,
-        borderRadius: 16,
-        backgroundColor: "#141C2E",
+        borderRadius: 20,
+        backgroundColor: stageColors.bg,
         borderWidth: 1,
-        borderColor: "#243047",
+        borderColor: stageColors.borderStrong,
         overflow: "hidden",
       }}
       accessibilityLabel={`avatar stage ${fsm}${

@@ -1,7 +1,9 @@
 /**
  * Vietnamese product copy from Design Contract inventory
- * (`docs/design/2026-08-17-aura-mobile-mvp.spec.md`).
+ * (`docs/design/2026-08-28-aura-mobile-ui-v3.spec.md`).
  * Auth keys remain in `features/auth/copy.ts` for M2 compatibility.
+ * DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+ * DESIGN-GATE: asset-pack N/A — product chrome
  */
 
 export const tabsCopy = {
@@ -17,6 +19,7 @@ export const homeCopy = {
   error_start_session: "Không tạo được phiên. Thử lại nhé.",
   retry: "Thử lại",
   persona: {
+    start_chip: "Bắt đầu",
     tough_interviewer: {
       name: "Người phỏng vấn khắt khe",
       blurb: "Luyện phỏng vấn áp lực, câu hỏi xoáy, phản hồi thẳng.",
@@ -33,6 +36,8 @@ export const sessionCopy = {
   menu_a11y: "Thêm tùy chọn",
   ptt_label: "Giữ để nói",
   ptt_a11y: "Giữ để nói, thả để gửi",
+  ptt_recording: "Đang ghi",
+  ptt_processing: "Đang xử lý",
   chip: {
     idle: "Sẵn sàng",
     listen: "Đang nghe",
@@ -40,6 +45,12 @@ export const sessionCopy = {
     recording: "Đang ghi",
     processing: "Đang xử lý",
   },
+  caption: {
+    label: "PHỤ ĐỀ TRỰC TIẾP",
+    hide_a11y: "Ẩn phụ đề",
+    show_a11y: "Hiện phụ đề",
+  },
+  avatar_degraded: "Đang dùng chế độ đơn giản",
   error_turn: "Chưa nghe rõ lượt này. Thử nói lại nhé.",
   error_connect: "Mất kết nối phiên.",
   mic_permission_title: "Cần quyền micro",
@@ -59,8 +70,13 @@ export const historyCopy = {
 export const settingsCopy = {
   title: "Cài đặt",
   section_account: "Tài khoản",
+  section_appearance: "Giao diện",
   section_privacy: "Quyền riêng tư",
   email: "Email",
+  appearance_label: "Chủ đề",
+  appearance_system: "Theo hệ thống",
+  appearance_light: "Sáng",
+  appearance_dark: "Tối",
   wipe_row: "Xóa toàn bộ lịch sử",
   wipe_title: "Xóa lịch sử?",
   wipe_body:

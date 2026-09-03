@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import type { PersonaSlug } from "@aura/contracts";
 import { SessionScreen } from "../../src/features/session";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 function asPersonaSlug(

@@ -3,6 +3,9 @@ import { Pressable, Text } from "react-native";
 import { authCopy } from "../copy";
 import { AuthTextField } from "./AuthTextField";
 
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: asset-pack N/A — product chrome
+
 type PasswordFieldProps = {
   label: string;
   value: string;

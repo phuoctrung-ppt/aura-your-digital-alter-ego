@@ -5,16 +5,21 @@ import { historyApi } from "../../../lib/api";
 import { isApiMockEnabled } from "../../../lib/config";
 import { commonCopy, settingsCopy } from "../../../lib/i18n";
 import { useSession } from "../../../lib/session";
+import { chromeColors, useResolvedTheme } from "../../../lib/theme";
+import { AppearanceSection } from "../components/AppearanceSection";
 import { WipeHistorySheet } from "../components/WipeHistorySheet";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 /**
- * Settings — account email, history wipe sheet, logout.
+ * Settings — appearance, account email, history wipe sheet, logout.
+ * Dual-theme chrome via chromeColors(resolved). Rows minH 52; wipe uses danger.
  */
 export function SettingsScreen() {
   const { user, logout } = useSession();
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
   const [busy, setBusy] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeBusy, setWipeBusy] = useState(false);
@@ -37,15 +42,18 @@ export function SettingsScreen() {
   }, [wipeBusy]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0B1220" }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.bgApp }}
+      edges={["top"]}
+    >
       <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
         <Text
           style={{
             marginBottom: 24,
-            color: "#F5F7FA",
-            fontSize: 22,
+            color: colors.text,
+            fontSize: 24,
             fontWeight: "600",
-            lineHeight: 28,
+            lineHeight: 30,
           }}
         >
           {settingsCopy.title}
@@ -54,7 +62,7 @@ export function SettingsScreen() {
         <Text
           style={{
             marginBottom: 8,
-            color: "#6B7A94",
+            color: colors.textMuted,
             fontSize: 13,
             fontWeight: "500",
             lineHeight: 18,
@@ -67,8 +75,8 @@ export function SettingsScreen() {
             marginBottom: 24,
             borderRadius: 12,
             borderWidth: 1,
-            borderColor: "#243047",
-            backgroundColor: "#141C2E",
+            borderColor: colors.border,
+            backgroundColor: colors.bgElevated,
             paddingHorizontal: 16,
             paddingVertical: 12,
             minHeight: 52,
@@ -77,7 +85,7 @@ export function SettingsScreen() {
         >
           <Text
             style={{
-              color: "#6B7A94",
+              color: colors.textMuted,
               fontSize: 13,
               fontWeight: "500",
               lineHeight: 18,
@@ -87,7 +95,7 @@ export function SettingsScreen() {
           </Text>
           <Text
             style={{
-              color: "#F5F7FA",
+              color: colors.text,
               fontSize: 16,
               fontWeight: "400",
               lineHeight: 24,
@@ -97,10 +105,12 @@ export function SettingsScreen() {
           </Text>
         </View>
 
+        <AppearanceSection />
+
         <Text
           style={{
             marginBottom: 8,
-            color: "#6B7A94",
+            color: colors.textMuted,
             fontSize: 13,
             fontWeight: "500",
             lineHeight: 18,
@@ -119,13 +129,13 @@ export function SettingsScreen() {
             justifyContent: "center",
             borderRadius: 12,
             borderWidth: 1,
-            borderColor: "#33415C",
+            borderColor: colors.borderStrong,
             paddingHorizontal: 16,
           }}
         >
           <Text
             style={{
-              color: "#F5F7FA",
+              color: colors.text,
               fontSize: 16,
               fontWeight: "600",
               lineHeight: 20,
@@ -149,17 +159,17 @@ export function SettingsScreen() {
             justifyContent: "center",
             borderRadius: 12,
             borderWidth: 1,
-            borderColor: "#33415C",
+            borderColor: colors.borderStrong,
             paddingHorizontal: 16,
             opacity: busy ? 0.4 : 1,
           }}
         >
           {busy ? (
-            <ActivityIndicator color="#F5F7FA" />
+            <ActivityIndicator color={colors.text} />
           ) : (
             <Text
               style={{
-                color: "#F5F7FA",
+                color: colors.text,
                 fontSize: 16,
                 fontWeight: "600",
                 lineHeight: 20,

@@ -13,11 +13,12 @@ import { sessionsApi } from "../../../lib/api";
 import { isApiMockEnabled } from "../../../lib/config";
 import { historyCopy } from "../../../lib/i18n";
 import { useNetworkStatus } from "../../../lib/network/useNetworkStatus";
+import { chromeColors, useResolvedTheme } from "../../../lib/theme";
 import { ErrorBanner, NetworkEmpty } from "../../shared";
 import { HistoryListSkeleton } from "../components/HistoryListSkeleton";
 import { HistorySessionRow } from "../components/HistorySessionRow";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 type HistoryScreenProps = {
@@ -29,13 +30,15 @@ type HistoryScreenProps = {
 
 /**
  * History — list / resume sessions.
- * States: loading skeleton (6×h72), empty_network, error + retry,
- * empty_never CTA, list rows.
+ * States: loading skeleton (6×h88), empty_network, error + retry,
+ * empty_never CTA, glass list rows.
  */
 export function HistoryScreen({
   onGoHome,
   onResumeSession,
 }: HistoryScreenProps) {
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
   const { isOnline, refresh: refreshNetwork } = useNetworkStatus();
   const [items, setItems] = useState<Session[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,15 +98,18 @@ export function HistoryScreen({
   const showList = Array.isArray(items) && items.length > 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0B1220" }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.bgApp }}
+      edges={["top"]}
+    >
       <View style={{ paddingHorizontal: 20, paddingTop: 16, flex: 1 }}>
         <Text
           style={{
             marginBottom: 24,
-            color: "#F5F7FA",
-            fontSize: 22,
+            color: colors.text,
+            fontSize: 24,
             fontWeight: "600",
-            lineHeight: 28,
+            lineHeight: 30,
           }}
         >
           {historyCopy.title}
@@ -133,8 +139,8 @@ export function HistoryScreen({
               style={{
                 marginBottom: 8,
                 textAlign: "center",
-                color: "#F5F7FA",
-                fontSize: 16,
+                color: colors.text,
+                fontSize: 17,
                 fontWeight: "600",
                 lineHeight: 22,
               }}
@@ -145,7 +151,7 @@ export function HistoryScreen({
               style={{
                 marginBottom: 24,
                 textAlign: "center",
-                color: "#A8B3C7",
+                color: colors.textSecondary,
                 fontSize: 16,
                 fontWeight: "400",
                 lineHeight: 24,
@@ -163,13 +169,13 @@ export function HistoryScreen({
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: 12,
-                backgroundColor: "#2DD4BF",
+                backgroundColor: colors.accent,
                 paddingHorizontal: 16,
               }}
             >
               <Text
                 style={{
-                  color: "#042F2E",
+                  color: colors.textOnAccent,
                   fontSize: 16,
                   fontWeight: "600",
                   lineHeight: 20,
@@ -192,8 +198,8 @@ export function HistoryScreen({
               />
             )}
             getItemLayout={(_, index) => ({
-              length: 84,
-              offset: 84 * index,
+              length: 100,
+              offset: 100 * index,
               index,
             })}
             contentContainerStyle={{ paddingBottom: 24 }}
@@ -203,8 +209,8 @@ export function HistoryScreen({
                 onRefresh={() => {
                   void load({ soft: true });
                 }}
-                tintColor="#2DD4BF"
-                colors={["#2DD4BF"]}
+                tintColor={colors.accent}
+                colors={[colors.accent]}
               />
             }
           />

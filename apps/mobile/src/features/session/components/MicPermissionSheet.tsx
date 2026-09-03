@@ -1,7 +1,8 @@
 import { Linking, Modal, Pressable, Text, View } from "react-native";
 import { sessionCopy, commonCopy } from "../../../lib/i18n";
+import { stageColors } from "../../../lib/theme";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 type MicPermissionSheetProps = {
@@ -9,7 +10,7 @@ type MicPermissionSheetProps = {
   onClose: () => void;
 };
 
-/** Shown when mic permission is denied — VN copy from Design Contract. */
+/** Shown when mic permission is denied — sheet radius 28, stage tokens. */
 export function MicPermissionSheet({
   visible,
   onClose,
@@ -31,9 +32,9 @@ export function MicPermissionSheet({
         <View
           style={{
             width: "100%",
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            backgroundColor: "#141C2E",
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            backgroundColor: stageColors.elevated,
             paddingHorizontal: 24,
             paddingTop: 24,
             paddingBottom: 32,
@@ -41,10 +42,10 @@ export function MicPermissionSheet({
         >
           <Text
             style={{
-              color: "#F5F7FA",
-              fontSize: 22,
+              color: stageColors.text,
+              fontSize: 24,
               fontWeight: "600",
-              lineHeight: 28,
+              lineHeight: 30,
               marginBottom: 8,
             }}
           >
@@ -52,7 +53,7 @@ export function MicPermissionSheet({
           </Text>
           <Text
             style={{
-              color: "#A8B3C7",
+              color: stageColors.textSecondary,
               fontSize: 16,
               fontWeight: "400",
               lineHeight: 24,
@@ -72,13 +73,13 @@ export function MicPermissionSheet({
               alignItems: "center",
               justifyContent: "center",
               borderRadius: 12,
-              backgroundColor: "#2DD4BF",
+              backgroundColor: stageColors.accent,
               marginBottom: 12,
             }}
           >
             <Text
               style={{
-                color: "#042F2E",
+                color: stageColors.textOnAccent,
                 fontSize: 16,
                 fontWeight: "600",
                 lineHeight: 20,
@@ -97,12 +98,12 @@ export function MicPermissionSheet({
               justifyContent: "center",
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: "#33415C",
+              borderColor: stageColors.borderStrong,
             }}
           >
             <Text
               style={{
-                color: "#F5F7FA",
+                color: stageColors.text,
                 fontSize: 16,
                 fontWeight: "600",
                 lineHeight: 20,

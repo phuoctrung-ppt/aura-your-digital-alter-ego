@@ -1,7 +1,8 @@
 import { Pressable, Text, View } from "react-native";
 import { commonCopy } from "../../../lib/i18n";
+import { chromeColors, useResolvedTheme } from "../../../lib/theme";
 
-// DESIGN-GATE: docs/design/2026-08-17-aura-mobile-mvp.spec.md
+// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 
 type ErrorBannerProps = {
@@ -9,8 +10,11 @@ type ErrorBannerProps = {
   onRetry?: () => void;
 };
 
-/** Inline error banner — soft danger wash + optional Thử lại. */
+/** Inline error banner — soft danger wash + danger-ink + optional Thử lại (accent-ink). */
 export function ErrorBanner({ message, onRetry }: ErrorBannerProps) {
+  const { resolved } = useResolvedTheme();
+  const colors = chromeColors(resolved);
+
   return (
     <View
       accessibilityRole="alert"
@@ -19,15 +23,15 @@ export function ErrorBanner({ message, onRetry }: ErrorBannerProps) {
         width: "100%",
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: "rgba(248, 113, 113, 0.4)",
-        backgroundColor: "rgba(248, 113, 113, 0.14)",
+        borderColor: colors.dangerBorder,
+        backgroundColor: colors.dangerWash,
         paddingHorizontal: 12,
         paddingVertical: 12,
       }}
     >
       <Text
         style={{
-          color: "#F87171",
+          color: colors.dangerInk,
           fontSize: 13,
           fontWeight: "500",
           lineHeight: 18,
@@ -48,7 +52,7 @@ export function ErrorBanner({ message, onRetry }: ErrorBannerProps) {
         >
           <Text
             style={{
-              color: "#2DD4BF",
+              color: colors.accentInk,
               fontSize: 16,
               fontWeight: "600",
               lineHeight: 20,
