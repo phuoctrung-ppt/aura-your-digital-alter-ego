@@ -10,6 +10,8 @@ type AuthPrimaryButtonProps = {
   onPress: (event: GestureResponderEvent) => void;
   loading?: boolean;
   disabled?: boolean;
+  /** Stable Maestro / Detox selector (optional). */
+  testID?: string;
 };
 
 /**
@@ -21,6 +23,7 @@ export function AuthPrimaryButton({
   onPress,
   loading = false,
   disabled = false,
+  testID,
 }: AuthPrimaryButtonProps) {
   const isDisabled = disabled || loading;
 
@@ -29,7 +32,9 @@ export function AuthPrimaryButton({
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
+      testID={testID}
       className={`h-[52px] w-full items-center justify-center rounded-md bg-accent ${
         isDisabled ? "opacity-40" : "active:bg-accent-pressed"
       }`}

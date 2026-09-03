@@ -41,6 +41,7 @@ export function PersonaCard({
       accessibilityRole="button"
       accessibilityLabel={persona.name}
       accessibilityState={{ disabled: disabled || busy, busy }}
+      testID={`persona-${persona.slug}`}
       style={({ pressed }) => ({
         minHeight: 120,
         borderRadius: 16,

@@ -26,7 +26,33 @@ jobs:
   api-and-contracts:
     name: contracts + api
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aura
+          POSTGRES_PASSWORD: aura
+          POSTGRES_DB: aura
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aura -d aura"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://aura:aura@localhost:5432/aura
+      DIRECT_URL: postgresql://aura:aura@localhost:5432/aura
+      NODE_ENV: test
+      AI_PROVIDER_MODE: fake
+      STT_PROVIDER: fake
+      TTS_PROVIDER: fake
+      AUDIO_STORAGE_PATH: /tmp/aura-audio-ci
+      JWT_ACCESS_SECRET: smoke-access-secret-do-not-use-prod-32b
+      JWT_REFRESH_SECRET: smoke-refresh-secret-do-not-use-prod-32b
 
     steps:
       - name: Checkout
@@ -42,7 +68,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           # Align with Dockerfile / pnpm 11.9 (needs Node >= 22.13)
-          node-version: "22.x" 
+          node-version: "22.x"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -64,6 +90,11 @@ jobs:
 
       - name: Lint API
         run: pnpm --filter @aura/api lint
+
+      - name: Migrate + seed Postgres
+        run: |
+          pnpm --filter @aura/api prisma:migrate
+          pnpm --filter @aura/api prisma:seed
 
       - name: Test API
         run: pnpm --filter @aura/api test

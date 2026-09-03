@@ -11,7 +11,23 @@ import {
 import type { User } from "@aura/contracts";
 import { apiClient, setOnUnauthorized } from "../api/client";
 import { authApi } from "../api/auth-api";
+import { isApiMockEnabled } from "../config";
 import { tokenStore, type TokenPair, type TokenStore } from "./token-store";
+
+/** Deterministic mock user for EXPO_PUBLIC_API_MOCK=1 (Maestro / offline UI). */
+function mockUserFromEmail(email: string): User {
+  return {
+    id: "00000000-0000-4000-8000-000000000001",
+    email: email.trim().toLowerCase() || "mock@example.com",
+    locale: "vi",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+const MOCK_TOKENS: TokenPair = {
+  accessToken: "mock-access-token",
+  refreshToken: "mock-refresh-token",
+};
 
 type SessionState = {
   user: User | null;
@@ -81,6 +97,12 @@ export function SessionProvider({
         return;
       }
 
+      // Mock mode: restore a local session without hitting /v1/me.
+      if (isApiMockEnabled()) {
+        setUser(mockUserFromEmail("maestro-smoke@example.com"));
+        return;
+      }
+
       try {
         const me = await authApi.me();
         setUser(me);
@@ -114,6 +136,14 @@ export function SessionProvider({
 
   const login = useCallback(
     async (email: string, password: string) => {
+      if (isApiMockEnabled()) {
+        // Maestro / offline UI: accept any non-empty credentials locally.
+        if (!email.trim() || !password) {
+          throw new Error("mock login requires email and password");
+        }
+        await setSession(mockUserFromEmail(email), MOCK_TOKENS);
+        return;
+      }
       const res = await authApi.login({ email, password });
       await setSession(res.data.user, {
         accessToken: res.data.tokens.accessToken,
@@ -125,6 +155,13 @@ export function SessionProvider({
 
   const register = useCallback(
     async (email: string, password: string) => {
+      if (isApiMockEnabled()) {
+        if (!email.trim() || !password) {
+          throw new Error("mock register requires email and password");
+        }
+        await setSession(mockUserFromEmail(email), MOCK_TOKENS);
+        return;
+      }
       const res = await authApi.register({ email, password, locale: "vi" });
       await setSession(res.data.user, {
         accessToken: res.data.tokens.accessToken,
@@ -135,13 +172,13 @@ export function SessionProvider({
   );
 
   const logout = useCallback(async () => {
-    const refreshToken = await storeRef.current.getRefreshToken();
-    try {
-      await authApi.logout(
-        refreshToken ? { refreshToken } : {},
-      );
-    } catch {
-      // Local clear still required even if network logout fails.
+    if (!isApiMockEnabled()) {
+      const refreshToken = await storeRef.current.getRefreshToken();
+      try {
+        await authApi.logout(refreshToken ? { refreshToken } : {});
+      } catch {
+        // Local clear still required even if network logout fails.
+      }
     }
     await clearSession();
   }, [clearSession]);

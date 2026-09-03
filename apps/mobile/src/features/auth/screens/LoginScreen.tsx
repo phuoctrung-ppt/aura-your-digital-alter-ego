@@ -66,6 +66,7 @@ export function LoginScreen({ onGoRegister }: LoginScreenProps) {
           textContentType="emailAddress"
           returnKeyType="next"
           editable={!loading}
+          testID="login-email"
         />
 
         <PasswordField
@@ -77,6 +78,7 @@ export function LoginScreen({ onGoRegister }: LoginScreenProps) {
             void onSubmit();
           }}
           editable={!loading}
+          testID="login-password"
         />
       </View>
 
@@ -102,6 +104,7 @@ export function LoginScreen({ onGoRegister }: LoginScreenProps) {
             void onSubmit();
           }}
           loading={loading}
+          testID="login-submit"
         />
       </View>
 
