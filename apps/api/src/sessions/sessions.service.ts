@@ -124,9 +124,6 @@ export class SessionsService {
       },
     });
 
-    this.logger.log(
-      `session.create userId=${userId} sessionId=${row.id} persona=${persona.slug} locale=${locale}`,
-    );
     return ok(this.toSessionDto(row));
   }
 
@@ -214,7 +211,6 @@ export class SessionsService {
       },
     });
 
-    this.logger.log(`session.end userId=${userId} sessionId=${row.id}`);
     return ok(this.toSessionDto(row));
   }
 

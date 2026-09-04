@@ -15,3 +15,4 @@ export {
   type UploadTurnInput,
 } from "./turns-api";
 export { historyApi, createHistoryApi } from "./history-api";
+export { voiceApi } from "./voice-api";

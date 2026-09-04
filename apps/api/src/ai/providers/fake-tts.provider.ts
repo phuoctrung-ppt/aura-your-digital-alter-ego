@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { TtsProvider, TtsRequest, TtsResult } from "../interfaces/tts-provider";
+import { VoiceDTO } from "@aura/contracts";
 
 /** Build a tiny valid mono PCM WAV (silence). */
 function buildSilentWav(
@@ -53,5 +54,17 @@ export class FakeTtsProvider implements TtsProvider {
       mimeType: "audio/wav",
       latencyMs: Date.now() - started,
     };
+  }
+
+  async listVoices(locale: string): Promise<VoiceDTO[]> {
+    return [
+      {
+        id: "fake-voice-1",
+        name: "Fake Voice 1",
+        provider: this.name,
+        locale,
+        isRecommended: true,
+      },
+    ];
   }
 }

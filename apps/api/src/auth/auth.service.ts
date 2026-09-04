@@ -81,7 +81,6 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokenPair(user);
-    this.logger.log(`auth.register userId=${user.id}`);
     return ok({ user: this.users.toPublicUser(user), tokens });
   }
 
@@ -107,7 +106,6 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokenPair(user);
-    this.logger.log(`auth.login userId=${user.id}`);
     return ok({ user: this.users.toPublicUser(user), tokens });
   }
 
@@ -155,7 +153,6 @@ export class AuthService {
     }
 
     const tokens = await this.rotateRefreshToken(stored.id, user);
-    this.logger.log(`auth.refresh userId=${user.id}`);
     return ok({ tokens });
   }
 
@@ -176,7 +173,6 @@ export class AuthService {
       await this.revokeAllRefreshTokens(userId);
     }
 
-    this.logger.log(`auth.logout userId=${userId}`);
     return ok({ ok: true as const });
   }
 

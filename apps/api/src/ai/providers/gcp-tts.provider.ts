@@ -5,11 +5,22 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { AppLogger } from "../../common";
 import type { TtsProvider, TtsRequest, TtsResult } from "../interfaces/tts-provider";
+import type { VoiceDTO } from "@aura/contracts";
 import { fetchWithTimeout, providerUnavailable } from "../provider-errors";
 import { getGoogleAuthHeaders } from "./google-adc";
 
 type SynthesizeResponse = {
   audioContent?: string;
+};
+
+type ListVoicesResponse = {
+  voices: {
+    name: string;
+    languageCodes: string[];
+    ssmlGender: string;
+    naturalSampleRateHertz: number;
+    shortDescription: string;
+  }[];
 };
 
 /**
@@ -142,5 +153,43 @@ export class GcpTextToSpeechProvider implements TtsProvider {
       mimeType,
       latencyMs,
     };
+  }
+
+  async listVoices(locale: string): Promise<VoiceDTO[]> {
+    const started = Date.now();
+    let authHeaders: Record<string, string>;
+    try {
+      authHeaders = await getGoogleAuthHeaders();
+    } catch (err) {
+      this.logger.warn(`gcp-tts.listVoices adc failed latencyMs=${Date.now() - started}`);
+      throw providerUnavailable("GCP TTS ADC unavailable");
+    }
+
+    try {
+      const response = await fetchWithTimeout(
+        `https://texttospeech.googleapis.com/v1/voices?languageCode=${locale}`,
+        {
+          method: "GET",
+          headers: { ...authHeaders },
+        },
+        10_000,
+      );
+
+      if (!response.ok) {
+        throw providerUnavailable(`GCP TTS listVoices returned HTTP ${response.status}`);
+      }
+
+      const json = (await response.json()) as ListVoicesResponse;
+      return json.voices.map((v) => ({
+        id: v.name,
+        name: v.name.split("-").pop() || v.name,
+        provider: this.name,
+        locale: locale,
+        isRecommended: v.name.includes("Neural2"),
+      }));
+    } catch (err) {
+      this.logger.warn(`gcp-tts.listVoices failed latencyMs=${Date.now() - started}`);
+      throw err;
+    }
   }
 }

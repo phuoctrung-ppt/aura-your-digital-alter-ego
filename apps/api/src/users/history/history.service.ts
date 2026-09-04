@@ -80,9 +80,6 @@ export class HistoryService {
       }
     }
 
-    this.logger.log(
-      `history.wipe userId=${userId} sessions=${counts.deletedSessions} turns=${counts.deletedTurns} memory=${counts.deletedMemoryItems}`,
-    );
     return ok(counts);
   }
 }

@@ -98,6 +98,13 @@ export const settingsCopy = {
   wipe_confirm: "Xóa vĩnh viễn",
   wipe_success: "Đã xóa lịch sử",
   logout: "Đăng xuất",
+  section_voice: "Giọng nói",
+  voice_label: "Chọn giọng nói cho Aura",
+  voice_preview: "Nghe thử",
+  voice_selected: "Đang dùng",
+  voice_select: "Chọn giọng",
+  voice_error_preview: "Không phát được thử giọng.",
+  voice_error_select: "Không lưu được giọng nói.",
 } as const;
 
 export const safetyCopy = {

@@ -40,6 +40,13 @@ export class UsersService {
     });
   }
 
+  async updateVoicePreference(userId: string, voiceId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { selectedVoiceId: voiceId },
+    });
+  }
+
   /**
    * Public UserSchema projection — ISO-8601 with offset (`Z` = UTC).
    * Never includes passwordHash.

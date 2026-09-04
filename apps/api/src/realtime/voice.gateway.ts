@@ -138,7 +138,6 @@ export class VoiceGateway
           next(err);
         });
     });
-    this.logger.log(`VoiceGateway ready namespace=${VOICE_WS_NAMESPACE}`);
   }
 
   handleConnection(client: Socket): void {
@@ -158,7 +157,6 @@ export class VoiceGateway
       }
       this.inflight.delete(client.id);
     }
-    this.logger.log(`voice.disconnect socketId=${client.id}`);
   }
 
   @SubscribeMessage(VoiceWsEvents.TurnStart)
@@ -219,9 +217,6 @@ export class VoiceGateway
         ...prior,
         clientTurnId: event.clientTurnId,
       });
-      this.logger.log(
-        `voice.turn.start idempotent sessionId=${event.sessionId} clientTurnId=${event.clientTurnId}`,
-      );
       return;
     }
 
@@ -250,10 +245,6 @@ export class VoiceGateway
       startedAtMs: Date.now(),
       sttSession,
     });
-
-    this.logger.log(
-      `voice.turn.start socketId=${client.id} sessionId=${event.sessionId} encoding=${event.encoding}`,
-    );
   }
 
   @SubscribeMessage(VoiceWsEvents.AudioFrame)
@@ -525,10 +516,6 @@ export class VoiceGateway
           : {}),
         latencyMs: data.latencyMs,
       });
-
-      this.logger.log(
-        `voice.turn.done socketId=${client.id} sessionId=${turn.sessionId} turnId=${data.turnId} latencyMs=${data.latencyMs ?? Date.now() - turn.startedAtMs}`,
-      );
     } catch (err) {
       this.emitHttpMappedError(client, err, event.clientTurnId);
       this.logger.warn(

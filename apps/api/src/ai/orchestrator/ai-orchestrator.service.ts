@@ -389,14 +389,21 @@ export class AiOrchestratorService {
     }
 
     // 4) TTS — chunked when emitter provided; otherwise single synthesize.
-    // Prefer session reply locale for voice map; clientLocale stays a soft hint.
+    // Prefer user's selected voice if available, otherwise fallback to persona's locale voice.
     const locale = session.locale;
     const ttsLocale = clientLocale ?? session.locale;
-    const voice = this.sessions.resolveTtsVoiceId(
-      session.persona.voiceByLocale,
-      locale,
-      session.persona.slug,
-    );
+
+    // 1. Resolve the voice ID: User preference -> Persona locale default -> Fallback
+    const voice = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { selectedVoiceId: true },
+    }).then(user => user?.selectedVoiceId)
+      ?? this.sessions.resolveTtsVoiceId(
+        session.persona.voiceByLocale,
+        locale,
+        session.persona.slug,
+      );
+
     const tts = await this.runTtsPossiblyChunked({
       text: assistantText,
       locale: ttsLocale,

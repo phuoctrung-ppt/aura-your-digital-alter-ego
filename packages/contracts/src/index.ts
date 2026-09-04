@@ -25,3 +25,4 @@ export * from "./turns-ws.js";
 export * from "./memory.js";
 export * from "./history.js";
 export * from "./health.js";
+export * from "./voice.js";
