@@ -2,8 +2,9 @@ import type { Persona } from "@aura/contracts";
 import { homeCopy } from "../../lib/i18n";
 
 /**
- * Design Contract VN catalog — used when GET /v1/personas fails.
+ * Design Contract VN catalog — used when GET /v1/personas fails / mock mode.
  * Exactly 2 MVP personas; never invent additional slugs.
+ * M15: tone / supportedLanguages / voiceByLocale required on Persona.
  */
 export const FALLBACK_PERSONAS: readonly Persona[] = [
   {
@@ -13,6 +14,16 @@ export const FALLBACK_PERSONAS: readonly Persona[] = [
     group: "interview",
     avatarAssetKey: "tough-interviewer",
     systemPromptVersion: "fallback",
+    tone: {
+      style: "tough",
+      pressure: "high",
+      corrections: "in-flow",
+    },
+    supportedLanguages: ["vi", "en"],
+    voiceByLocale: {
+      vi: { gender: "female", providerVoiceId: "fallback-interviewer-vi" },
+      en: { gender: "female", providerVoiceId: "fallback-interviewer-en" },
+    },
   },
   {
     slug: "native-buddy",
@@ -21,6 +32,16 @@ export const FALLBACK_PERSONAS: readonly Persona[] = [
     group: "language",
     avatarAssetKey: "native-buddy",
     systemPromptVersion: "fallback",
+    tone: {
+      style: "friendly",
+      pressure: "low",
+      corrections: "in-flow",
+    },
+    supportedLanguages: ["vi", "en"],
+    voiceByLocale: {
+      vi: { gender: "neutral", providerVoiceId: "fallback-buddy-vi" },
+      en: { gender: "neutral", providerVoiceId: "fallback-buddy-en" },
+    },
   },
 ] as const;
 

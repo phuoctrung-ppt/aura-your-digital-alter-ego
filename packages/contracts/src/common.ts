@@ -9,6 +9,8 @@ export const IsoDateTimeSchema = z.string().datetime({ offset: true });
 /**
  * BCP-47 locale. Product default is Vietnamese (`vi`).
  * Accept short tags used by the app; server may normalize.
+ * Prefer `PersonaLanguageSchema` / `SessionReplyLocaleSchema` for persona
+ * reply languages and session create/locale fields owned by PersonaConfig.
  */
 export const LocaleSchema = z
   .string()
@@ -17,6 +19,20 @@ export const LocaleSchema = z
   .regex(/^[A-Za-z]{2,3}([_-][A-Za-z0-9]+)*$/, "Invalid locale tag");
 
 export const DEFAULT_LOCALE = "vi" as const;
+
+/**
+ * MVP persona reply / TTS languages (M15 PersonaConfig).
+ * Distinct from broader `LocaleSchema` used by auth prefs / turn client hints.
+ */
+export const PersonaLanguageSchema = z.enum(["vi", "en"]);
+export type PersonaLanguage = z.infer<typeof PersonaLanguageSchema>;
+
+/**
+ * Session reply locale — must be one of the persona's `supportedLanguages`
+ * (validated server-side on `POST /v1/sessions`). Wire set is `vi|en`.
+ */
+export const SessionReplyLocaleSchema = PersonaLanguageSchema;
+export type SessionReplyLocale = z.infer<typeof SessionReplyLocaleSchema>;
 
 /** Cursor pagination query params (list endpoints). */
 export const CursorPaginationQuerySchema = z.object({
@@ -41,7 +57,10 @@ export type PersonaSlug = z.infer<typeof PersonaSlugSchema>;
 export const SessionStatusSchema = z.enum(["open", "ended"]);
 export type SessionStatus = z.infer<typeof SessionStatusSchema>;
 
-/** Avatar state cue for client 3D runtime. */
+/**
+ * Avatar presence cue for calling-UI chrome (idle / listen / talk).
+ * Drives circle avatar + waveform; not a 3D/GLB runtime cue (ADR-0006).
+ */
 export const AvatarCueSchema = z.enum(["idle", "listen", "talk"]);
 export type AvatarCue = z.infer<typeof AvatarCueSchema>;
 

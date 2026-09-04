@@ -7,6 +7,7 @@ import { commonCopy, settingsCopy } from "../../../lib/i18n";
 import { useSession } from "../../../lib/session";
 import { chromeColors, useResolvedTheme } from "../../../lib/theme";
 import { AppearanceSection } from "../components/AppearanceSection";
+import { VoiceSelectionSection } from "../components/VoiceSelectionSection";
 import { WipeHistorySheet } from "../components/WipeHistorySheet";
 
 // DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
@@ -106,6 +107,7 @@ export function SettingsScreen() {
         </View>
 
         <AppearanceSection />
+        <VoiceSelectionSection />
 
         <Text
           style={{

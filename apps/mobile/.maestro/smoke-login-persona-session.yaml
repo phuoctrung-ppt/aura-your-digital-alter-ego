@@ -34,7 +34,11 @@ appId: app.aura.mobile
 - tapOn:
     id: "persona-tough-interviewer"
 
-# --- Session presence + PTT affordance ---
+# --- Session presence + calling UI affordances (M15) ---
 - assertVisible: "Giữ để nói"
 - assertVisible:
+    id: "session-circle-avatar"
+- assertVisible:
     id: "ptt-button"
+- assertVisible:
+    id: "session-end-call"

@@ -1,14 +1,13 @@
-import { ConflictException, Injectable } from "@nestjs/common";
 import {
   ErrorCodes,
   type CreateTurnFormFields,
   type TurnResponse,
 } from "@aura/contracts";
+import { ConflictException, Injectable } from "@nestjs/common";
 import {
   AiOrchestratorService,
   type TurnAudioUpload,
 } from "../ai/orchestrator/ai-orchestrator.service";
-import { AppLogger } from "../common";
 import { SessionsService } from "../sessions/sessions.service";
 
 /**
@@ -16,8 +15,6 @@ import { SessionsService } from "../sessions/sessions.service";
  */
 @Injectable()
 export class TurnsService {
-  private readonly logger = new AppLogger(TurnsService.name);
-
   constructor(
     private readonly orchestrator: AiOrchestratorService,
     private readonly sessions: SessionsService,
@@ -41,9 +38,6 @@ export class TurnsService {
       });
     }
 
-    this.logger.log(
-      `turns.create userId=${userId} sessionId=${sessionId} bytes=${audio.size}`,
-    );
     return this.orchestrator.runTurn({
       userId,
       sessionId,

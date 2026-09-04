@@ -19,8 +19,10 @@ function envFlagTrue(value: string | undefined): boolean {
 }
 
 /**
- * Session avatar stage host (~68% height owned by SessionScreen parent).
- * Mounts R3F Canvas only while Session is mounted; tears down on leave.
+ * @deprecated Legacy R3F / Expo GL session stage (M8).
+ * **Demoted by ADR-0006 / M15 calling UI** — Session primary is `CircleAvatar`.
+ * Do **not** mount on the default Session path. Keep for opt-in experiments:
+ * set `EXPO_PUBLIC_AVATAR_R3F=1` in a custom host only.
  *
  * Import `@react-three/fiber/native` only. Remote JS debugging breaks GLView.
  */
@@ -34,7 +36,9 @@ export function AvatarStage({
 }: AvatarStageProps) {
   const fsm = useAvatarFsm({ state, avatarCue });
   const asset = resolveAvatarAsset(avatarAssetKey);
+  const r3fEnabled = envFlagTrue(process.env.EXPO_PUBLIC_AVATAR_R3F);
   const forceDegraded =
+    !r3fEnabled ||
     degradedProp === true ||
     envFlagTrue(process.env.EXPO_PUBLIC_AVATAR_DEGRADED);
   const { player, isPlaying } = useAvatarPlaybackBridge({ enabled: true });

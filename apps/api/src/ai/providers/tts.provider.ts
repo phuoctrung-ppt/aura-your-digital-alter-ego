@@ -7,6 +7,7 @@ import { AppLogger } from "../../common";
 import type { TtsProvider, TtsRequest, TtsResult } from "../interfaces/tts-provider";
 import { fetchWithTimeout, providerUnavailable } from "../provider-errors";
 import { FakeTtsProvider } from "./fake-tts.provider";
+import { VoiceDTO } from "@aura/contracts";
 
 /**
  * Pluggable TTS provider (local preferred; cloud via env).
@@ -31,6 +32,63 @@ export class TtsProviderImpl implements TtsProvider {
       .toLowerCase();
     this.name = mode || "local-silent";
     this.silent = new FakeTtsProvider(config);
+  }
+  async listVoices(locale: string): Promise<VoiceDTO[]> {
+    const normalizedLocale = locale?.trim() || "vi";
+    const configured = this.config.get<string>("TTS_VOICES_JSON")?.trim();
+
+    if (configured) {
+      try {
+        const voices = JSON.parse(configured) as unknown;
+        if (Array.isArray(voices)) {
+          return voices.filter((voice) => {
+            if (!voice || typeof voice !== "object") return false;
+            const value = voice as { locale?: string };
+            return !value.locale || value.locale === normalizedLocale;
+          }) as VoiceDTO[];
+        }
+      } catch {
+        this.logger.warn("tts.listVoices ignored invalid TTS_VOICES_JSON");
+      }
+    }
+
+    const baseUrl = this.config.get<string>("TTS_BASE_URL")?.trim();
+    if (!baseUrl || this.name === "fake" || this.name === "local-silent") {
+      return [];
+    }
+
+    const timeoutMs = Number(
+      this.config.get<string>("TTS_TIMEOUT_MS") ?? 10_000,
+    );
+    const apiKey = this.config.get<string>("TTS_API_KEY")?.trim();
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+    try {
+      const response = await fetchWithTimeout(
+        `${baseUrl.replace(/\/$/, "")}/voices?locale=${encodeURIComponent(normalizedLocale)}`,
+        { method: "GET", headers },
+        Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 10_000,
+      );
+      if (!response.ok) {
+        throw providerUnavailable(`TTS returned HTTP ${response.status}`);
+      }
+
+      const payload = (await response.json()) as
+        | VoiceDTO[]
+        | { voices?: VoiceDTO[] };
+      const voices = Array.isArray(payload) ? payload : payload.voices ?? [];
+      return voices.filter((voice) => {
+        const value = voice as VoiceDTO & { locale?: string };
+        return !value.locale || value.locale === normalizedLocale;
+      });
+    } catch (err) {
+      this.logger.warn(`tts.listVoices failed provider=${this.name}`);
+      if (err instanceof Error && "getStatus" in err) throw err;
+      throw providerUnavailable(
+        `TTS voices unreachable: ${err instanceof Error ? err.message : "unknown"}`,
+      );
+    }
   }
 
   async synthesize(request: TtsRequest): Promise<TtsResult> {

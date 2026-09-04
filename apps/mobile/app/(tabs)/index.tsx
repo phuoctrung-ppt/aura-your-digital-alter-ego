@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
-import type { PersonaSlug } from "@aura/contracts";
+import type { PersonaLanguage, PersonaSlug } from "@aura/contracts";
 import { HomeScreen } from "../../src/features/home";
 import { sessionsApi } from "../../src/lib/api";
 import { isApiMockEnabled } from "../../src/lib/config";
@@ -9,8 +9,9 @@ import { createClientTurnId } from "../../src/lib/id";
 import { homeCopy } from "../../src/lib/i18n";
 import { useNetworkStatus } from "../../src/lib/network/useNetworkStatus";
 
-// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: docs/design/2026-09-03-calling-ui.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
+// DESIGN-GATE: language pick at session start only (Home)
 
 /**
  * Home tab — persona picker.
@@ -22,7 +23,7 @@ export default function HomeTab() {
   const [starting, setStarting] = useState(false);
 
   const onStartSession = useCallback(
-    async (personaSlug: PersonaSlug) => {
+    async (personaSlug: PersonaSlug, locale: PersonaLanguage) => {
       if (starting) return;
 
       if (isOnline === false) {
@@ -36,18 +37,22 @@ export default function HomeTab() {
           const mockId = createClientTurnId();
           router.push({
             pathname: "/session/[id]",
-            params: { id: mockId, personaSlug },
+            params: { id: mockId, personaSlug, locale },
           });
           return;
         }
 
         const res = await sessionsApi.createSession({
           personaSlug,
-          locale: "vi",
+          locale,
         });
         router.push({
           pathname: "/session/[id]",
-          params: { id: res.data.id, personaSlug },
+          params: {
+            id: res.data.id,
+            personaSlug,
+            locale: res.data.locale ?? locale,
+          },
         });
       } catch {
         Alert.alert(homeCopy.error_start_session, homeCopy.retry);

@@ -1,8 +1,9 @@
 /**
  * Vietnamese product copy from Design Contract inventory
- * (`docs/design/2026-08-28-aura-mobile-ui-v3.spec.md`).
+ * (`docs/design/2026-08-28-aura-mobile-ui-v3.spec.md` +
+ *  `docs/design/2026-09-03-calling-ui.spec.md` M15 delta).
  * Auth keys remain in `features/auth/copy.ts` for M2 compatibility.
- * DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+ * DESIGN-GATE: docs/design/2026-09-03-calling-ui.spec.md
  * DESIGN-GATE: asset-pack N/A — product chrome
  */
 
@@ -18,6 +19,12 @@ export const homeCopy = {
   error_load: "Không tải được danh sách nhân vật.",
   error_start_session: "Không tạo được phiên. Thử lại nhé.",
   retry: "Thử lại",
+  language: {
+    label: "Ngôn ngữ trả lời",
+    vi: "Tiếng Việt",
+    en: "English",
+    a11y: "Chọn ngôn ngữ trả lời trước khi bắt đầu",
+  },
   persona: {
     start_chip: "Bắt đầu",
     tough_interviewer: {
@@ -38,6 +45,12 @@ export const sessionCopy = {
   ptt_a11y: "Giữ để nói, thả để gửi",
   ptt_recording: "Đang ghi",
   ptt_processing: "Đang xử lý",
+  end_call: "Kết thúc",
+  end_call_a11y: "Kết thúc cuộc gọi",
+  ending: "Đang kết thúc…",
+  mic_affordance_a11y: "Trạng thái micro",
+  locale_chip_a11y: "Ngôn ngữ phiên: {locale}",
+  circle_avatar_a11y: "Ảnh đại diện {personaName}",
   chip: {
     idle: "Sẵn sàng",
     listen: "Đang nghe",
@@ -85,6 +98,13 @@ export const settingsCopy = {
   wipe_confirm: "Xóa vĩnh viễn",
   wipe_success: "Đã xóa lịch sử",
   logout: "Đăng xuất",
+  section_voice: "Giọng nói",
+  voice_label: "Chọn giọng nói cho Aura",
+  voice_preview: "Nghe thử",
+  voice_selected: "Đang dùng",
+  voice_select: "Chọn giọng",
+  voice_error_preview: "Không phát được thử giọng.",
+  voice_error_select: "Không lưu được giọng nói.",
 } as const;
 
 export const safetyCopy = {

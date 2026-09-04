@@ -13,11 +13,20 @@ process.env.AI_PROVIDER_MODE = "fake";
 process.env.STT_PROVIDER = process.env.STT_PROVIDER ?? "fake";
 process.env.TTS_PROVIDER = process.env.TTS_PROVIDER ?? "fake";
 
-// Compose host default matches smoke scripts when POSTGRES_PORT=5433 locally.
-// CI overrides to localhost:5432 via workflow env.
-process.env.DATABASE_URL =
-  process.env.DATABASE_URL ?? "postgresql://aura:aura@localhost:5433/aura";
-process.env.DIRECT_URL = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+// Force local compose Postgres for Jest. Root `.env` often points at remote
+// (e.g. Supabase) and ConfigModule/Prisma CLI may read it — never inherit that
+// into critical-path suites unless CI already set DATABASE_URL.
+// CI workflow sets DATABASE_URL=localhost:5432 and CI=true.
+const localDb =
+  process.env.AURA_TEST_DATABASE_URL ??
+  "postgresql://aura:aura@localhost:5433/aura";
+if (process.env.CI === "true") {
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL ?? "postgresql://aura:aura@localhost:5432/aura";
+} else {
+  process.env.DATABASE_URL = localDb;
+}
+process.env.DIRECT_URL = process.env.DATABASE_URL;
 
 // Isolated audio dir for tests (fake TTS writes here).
 process.env.AUDIO_STORAGE_PATH =

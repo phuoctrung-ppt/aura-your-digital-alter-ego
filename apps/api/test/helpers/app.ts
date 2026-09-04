@@ -6,8 +6,9 @@
  */
 
 import { RequestMethod, type INestApplication } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
-import { ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AppModule } from "../../src/app.module";
 import { HttpEnvelopeExceptionFilter } from "../../src/common";
 import { PrismaService } from "../../src/prisma/prisma.service";
@@ -19,9 +20,20 @@ export type TestAppContext = {
   prisma: PrismaService;
 };
 
+/** Always-allow guard — replaces global ThrottlerGuard under Jest. */
+class NoopThrottlerGuard {
+  canActivate(): boolean {
+    return true;
+  }
+}
+
 /**
  * Boot a full Nest app against real Postgres + fake AI providers.
- * Raises named throttle limits so suites do not flake on auth/session/turn caps.
+ *
+ * Throttle note: `@Throttle({ auth|sessionCreate|voiceTurn|… })` on controllers
+ * hard-codes route limits and wins over `ThrottlerModule.forRoot` overrides, so
+ * M15 suites (extra registers/turns) flake with 429. Replace the global
+ * `APP_GUARD` ThrottlerGuard in Jest; production limits stay on controllers.
  */
 export async function createTestApp(): Promise<TestAppContext> {
   const moduleRef = await Test.createTestingModule({
@@ -37,6 +49,10 @@ export async function createTestApp(): Promise<TestAppContext> {
         { name: "historyDelete", ttl: 60_000, limit: 10_000 },
       ]),
     )
+    .overrideProvider(APP_GUARD)
+    .useClass(NoopThrottlerGuard)
+    .overrideGuard(ThrottlerGuard)
+    .useClass(NoopThrottlerGuard)
     .compile();
 
   const app = moduleRef.createNestApplication();

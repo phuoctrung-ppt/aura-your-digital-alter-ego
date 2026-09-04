@@ -1,20 +1,25 @@
 import { Pressable, Text, View } from "react-native";
-import type { Persona, PersonaSlug } from "@aura/contracts";
+import type { Persona, PersonaLanguage, PersonaSlug } from "@aura/contracts";
 import { homeCopy } from "../../../lib/i18n";
 import {
   chromeColors,
   personaTint,
   useResolvedTheme,
 } from "../../../lib/theme";
+import { LanguagePicker } from "./LanguagePicker";
 
-// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: docs/design/2026-09-03-calling-ui.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
+// DESIGN-GATE: dual_portrait unchanged; language segmented delta at start only
 
 type PersonaCardProps = {
   persona: Persona;
-  onPress?: (slug: PersonaSlug) => void;
+  onPress?: (slug: PersonaSlug, locale: PersonaLanguage) => void;
   disabled?: boolean;
   busy?: boolean;
+  /** Reply locale selected for this hero (Home-owned). */
+  locale: PersonaLanguage;
+  onLocaleChange?: (slug: PersonaSlug, locale: PersonaLanguage) => void;
 };
 
 function blurbFor(slug: PersonaSlug): string {
@@ -39,6 +44,8 @@ export function PersonaCard({
   onPress,
   disabled,
   busy,
+  locale,
+  onLocaleChange,
 }: PersonaCardProps) {
   const { resolved } = useResolvedTheme();
   const colors = chromeColors(resolved);
@@ -46,11 +53,12 @@ export function PersonaCard({
     persona.slug === "tough-interviewer" || persona.slug === "native-buddy"
       ? personaTint(resolved, persona.slug)
       : colors.accentInk;
+  const languages = persona.supportedLanguages;
 
   return (
     <Pressable
       testID={`persona-${persona.slug}`}
-      onPress={() => onPress?.(persona.slug)}
+      onPress={() => onPress?.(persona.slug, locale)}
       disabled={disabled || busy}
       accessibilityRole="button"
       accessibilityLabel={`${persona.name}. ${homeCopy.persona.start_chip}`}
@@ -121,6 +129,17 @@ export function PersonaCard({
             {glyphFor(persona.slug)}
           </Text>
         </View>
+      </View>
+
+      {/* Capture touches so language taps do not fire full-card start */}
+      <View onStartShouldSetResponder={() => true}>
+        <LanguagePicker
+          options={languages}
+          value={locale}
+          disabled={disabled || busy}
+          testID="session-language-picker"
+          onChange={(next) => onLocaleChange?.(persona.slug, next)}
+        />
       </View>
 
       <View

@@ -2,9 +2,9 @@ import { View } from "react-native";
 import { stageColors } from "../../../lib/theme";
 import type { SessionUiState } from "../types";
 
-// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: docs/design/2026-09-03-calling-ui.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
-// DESIGN-GATE: waveform height 36 · bar 3 / gap 2 · denser free bars (~24)
+// DESIGN-GATE: waveform height 36 · bar 3 / gap 2 · denser free bars (~24) · accent on talk
 
 type WaveformProps = {
   state: SessionUiState;
@@ -22,12 +22,14 @@ const BAR_HEIGHTS = [
  * Transparent track to match CallScreen free bars. Always stage (force_dark).
  */
 export function Waveform({ state }: WaveformProps) {
-  const active =
-    state === "talk" || state === "recording" || state === "processing";
+  // Talk = mandatory accent; recording may accent (optional per contract).
+  const active = state === "talk" || state === "recording";
 
   return (
     <View
+      testID="session-waveform"
       accessibilityLabel={active ? "waveform-active" : "waveform-idle"}
+      accessibilityState={{ selected: active }}
       style={{
         height: 36,
         width: "100%",

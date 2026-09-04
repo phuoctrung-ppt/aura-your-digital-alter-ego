@@ -1,28 +1,31 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { UsersService } from "src/users";
 import { MemoryModule } from "../memory/memory.module";
 import { SafetyModule } from "../safety/safety.module";
 import { SessionsModule } from "../sessions/sessions.module";
 import { AudioStorage } from "./audio-storage";
+import { VoiceController } from "./controllers/voice.controller";
 import { AiOrchestratorService } from "./orchestrator/ai-orchestrator.service";
-import { OllamaChatProvider } from "./providers/ollama-chat.provider";
-import { OpenAiCompatibleChatProvider } from "./providers/openai-compatible-chat.provider";
-import { VertexChatProvider } from "./providers/vertex-chat.provider";
-import { WhisperSttProvider } from "./providers/whisper-stt.provider";
-import { GcpSpeechSttProvider } from "./providers/gcp-speech-stt.provider";
-import { TtsProviderImpl } from "./providers/tts.provider";
-import { GcpTextToSpeechProvider } from "./providers/gcp-tts.provider";
 import { FakeChatProvider } from "./providers/fake-chat.provider";
+import { FakeStreamingSttProvider } from "./providers/fake-streaming-stt.provider";
 import { FakeSttProvider } from "./providers/fake-stt.provider";
 import { FakeTtsProvider } from "./providers/fake-tts.provider";
-import { FakeStreamingSttProvider } from "./providers/fake-streaming-stt.provider";
 import { GcpSpeechStreamingSttProvider } from "./providers/gcp-speech-streaming.stt";
+import { GcpSpeechSttProvider } from "./providers/gcp-speech-stt.provider";
+import { GcpTextToSpeechProvider } from "./providers/gcp-tts.provider";
+import { OllamaChatProvider } from "./providers/ollama-chat.provider";
+import { OpenAiCompatibleChatProvider } from "./providers/openai-compatible-chat.provider";
+import { TtsProviderImpl } from "./providers/tts.provider";
+import { VertexChatProvider } from "./providers/vertex-chat.provider";
+import { WhisperSttProvider } from "./providers/whisper-stt.provider";
+import { VoiceService } from "./services/voice.service";
 import {
   CHAT_PROVIDER,
   CHAT_PROVIDER_FALLBACK,
+  STREAMING_STT_PROVIDER,
   STT_PROVIDER,
   STT_PROVIDER_FALLBACK,
-  STREAMING_STT_PROVIDER,
   TTS_PROVIDER,
   TTS_PROVIDER_FALLBACK,
 } from "./tokens";
@@ -55,7 +58,9 @@ function envFlag(raw: string | undefined): string {
  */
 @Module({
   imports: [SessionsModule, SafetyModule, MemoryModule],
+  controllers: [VoiceController],
   providers: [
+    VoiceService,
     AudioStorage,
     OllamaChatProvider,
     OpenAiCompatibleChatProvider,
@@ -69,6 +74,7 @@ function envFlag(raw: string | undefined): string {
     FakeTtsProvider,
     FakeStreamingSttProvider,
     GcpSpeechStreamingSttProvider,
+    UsersService,
     {
       provide: CHAT_PROVIDER,
       inject: [ConfigService, FakeChatProvider, OllamaChatProvider],

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AccessibilityInfo, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { Persona, PersonaSlug } from "@aura/contracts";
+import type { Persona, PersonaLanguage, PersonaSlug } from "@aura/contracts";
 import { personasApi } from "../../../lib/api";
 import { isApiMockEnabled } from "../../../lib/config";
 import { homeCopy } from "../../../lib/i18n";
@@ -13,15 +13,24 @@ import { PersonaCard } from "../components/PersonaCard";
 import { PersonaCardSkeleton } from "../components/PersonaCardSkeleton";
 import { FALLBACK_PERSONAS, onlyMvpPersonas } from "../fallback-personas";
 
-// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: docs/design/2026-09-03-calling-ui.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
+// DESIGN-GATE: language pick at home_pre_session only — mid-call forbidden
 
 type HomeScreenProps = {
   /** Navigate after createSession succeeds (route owns create). */
-  onStartSession?: (personaSlug: PersonaSlug) => void | Promise<void>;
+  onStartSession?: (
+    personaSlug: PersonaSlug,
+    locale: PersonaLanguage,
+  ) => void | Promise<void>;
   /** Parent may pass starting state while createSession is in flight. */
   starting?: boolean;
 };
+
+function defaultLocaleFor(persona: Persona): PersonaLanguage {
+  if (persona.supportedLanguages.includes("vi")) return "vi";
+  return persona.supportedLanguages[0] ?? "vi";
+}
 
 /**
  * Home — greeting + exactly 2 dual_portrait glass persona heroes.
@@ -36,6 +45,9 @@ export function HomeScreen({ onStartSession, starting }: HomeScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [localeBySlug, setLocaleBySlug] = useState<
+    Partial<Record<PersonaSlug, PersonaLanguage>>
+  >({});
 
   useEffect(() => {
     let mounted = true;
@@ -52,26 +64,40 @@ export function HomeScreen({ onStartSession, starting }: HomeScreenProps) {
     };
   }, []);
 
+  const applyPersonas = useCallback((items: Persona[]) => {
+    setPersonas(items);
+    setLocaleBySlug((prev) => {
+      const next: Partial<Record<PersonaSlug, PersonaLanguage>> = { ...prev };
+      for (const persona of items) {
+        const current = next[persona.slug];
+        if (!current || !persona.supportedLanguages.includes(current)) {
+          next[persona.slug] = defaultLocaleFor(persona);
+        }
+      }
+      return next;
+    });
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     if (isApiMockEnabled()) {
-      setPersonas([...FALLBACK_PERSONAS]);
+      applyPersonas([...FALLBACK_PERSONAS]);
       setLoading(false);
       return;
     }
 
     try {
       const items = await personasApi.listPersonas();
-      setPersonas(onlyMvpPersonas(items));
+      applyPersonas(onlyMvpPersonas(items));
     } catch {
       setError(homeCopy.error_load);
-      setPersonas([...FALLBACK_PERSONAS]);
+      applyPersonas([...FALLBACK_PERSONAS]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyPersonas]);
 
   useEffect(() => {
     void load();
@@ -199,17 +225,25 @@ export function HomeScreen({ onStartSession, starting }: HomeScreenProps) {
             </View>
           ) : null}
 
-          {personas?.map((persona) => (
-            <PersonaCard
-              key={persona.slug}
-              persona={persona}
-              disabled={starting}
-              busy={starting}
-              onPress={(slug) => {
-                void onStartSession?.(slug);
-              }}
-            />
-          ))}
+          {personas?.map((persona) => {
+            const locale =
+              localeBySlug[persona.slug] ?? defaultLocaleFor(persona);
+            return (
+              <PersonaCard
+                key={persona.slug}
+                persona={persona}
+                disabled={starting}
+                busy={starting}
+                locale={locale}
+                onLocaleChange={(slug, next) => {
+                  setLocaleBySlug((prev) => ({ ...prev, [slug]: next }));
+                }}
+                onPress={(slug, selectedLocale) => {
+                  void onStartSession?.(slug, selectedLocale);
+                }}
+              />
+            );
+          })}
         </ScrollView>
       </View>
     </SafeAreaView>

@@ -1,5 +1,5 @@
 /**
- * E2E — session ownership / cross-user isolation (T-M12-01).
+ * E2E — session ownership / cross-user isolation (T-M12-01) + M15 locale (T7).
  */
 
 import request from "supertest";
@@ -41,9 +41,52 @@ describe("Sessions API (e2e)", () => {
       id: string;
       personaSlug: string;
       userId: string;
+      locale: string;
     }>(res.body);
     expect(data.personaSlug).toBe("tough-interviewer");
     expect(data.userId).toBe(user.userId);
+    expect(data.locale).toBe("vi");
+  });
+
+  it("defaults omitted locale to vi", async () => {
+    const user = await registerFreshUser(ctx.app, "sess-default-locale");
+    const res = await request(ctx.httpServer)
+      .post("/v1/sessions")
+      .set(authHeader(user.accessToken))
+      .send({ personaSlug: "native-buddy" })
+      .expect(201);
+
+    const data = expectOkEnvelope<{ locale: string; personaSlug: string }>(
+      res.body,
+    );
+    expect(data.personaSlug).toBe("native-buddy");
+    expect(data.locale).toBe("vi");
+  });
+
+  it("creates a session with locale=en when persona supports it", async () => {
+    const user = await registerFreshUser(ctx.app, "sess-en");
+    const res = await request(ctx.httpServer)
+      .post("/v1/sessions")
+      .set(authHeader(user.accessToken))
+      .send({ personaSlug: "tough-interviewer", locale: "en" })
+      .expect(201);
+
+    const data = expectOkEnvelope<{ locale: string }>(res.body);
+    expect(data.locale).toBe("en");
+  });
+
+  it("rejects invalid locale at Zod with VALIDATION_ERROR", async () => {
+    const user = await registerFreshUser(ctx.app, "sess-bad-locale");
+    const res = await request(ctx.httpServer)
+      .post("/v1/sessions")
+      .set(authHeader(user.accessToken))
+      .send({ personaSlug: "tough-interviewer", locale: "fr" })
+      .expect(400);
+
+    const error = expectErrorEnvelope(res.body, "VALIDATION_ERROR");
+    // Wire schema only allows vi|en — LOCALE_UNSUPPORTED is service-level
+    // (covered in sessions.service.spec.ts with a vi-only mocked persona).
+    expect(error.details).toBeDefined();
   });
 
   it("returns SESSION_NOT_FOUND when user B GETs user A session", async () => {

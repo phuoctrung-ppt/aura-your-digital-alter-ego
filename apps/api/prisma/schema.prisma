@@ -19,8 +19,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  url       = "postgresql://postgres.twbrtjbmhchcrlpefiut:NoobDev123%21%40%23@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+  directUrl = "postgresql://postgres.twbrtjbmhchcrlpefiut:NoobDev123%21%40%23@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
 }
 
 // ─── Enums (align with packages/contracts) ───────────────────────────────────
@@ -47,6 +47,7 @@ model User {
   email        String   @unique
   passwordHash String
   locale       String   @default("vi")
+  selectedVoiceId String?
   prefs        Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -65,11 +66,17 @@ model Persona {
   name                String
   description         String
   group               PersonaGroup
+  /// 2D calling-UI circle avatar key (ADR-0006) — not a GLB mesh path.
   avatarAssetKey      String
   systemPromptVersion String
   /// Server-side only — never expose full text on public API contracts.
   systemPromptText    String
-  tone                Json?
+  /// Public tone knobs — PersonaToneSchema shape (style/pressure/corrections).
+  tone                Json
+  /// Reply languages this persona supports — string[] of PersonaLanguage (`vi`|`en`).
+  supportedLanguages  Json
+  /// TTS voice map per reply locale — Record<PersonaLanguage, PersonaVoice>.
+  voiceByLocale       Json
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 

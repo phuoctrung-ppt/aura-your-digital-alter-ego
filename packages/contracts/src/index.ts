@@ -9,8 +9,10 @@
 /**
  * Package / schema set version (semver-ish; bump on breaking contract changes).
  * 0.2.0 — additive M7.5 Socket.IO streaming-PTT events (`turns-ws`) + WS error codes.
+ * 0.3.0 — [BREAKING] M15 PersonaConfig: required `tone` / `supportedLanguages` /
+ *         `voiceByLocale` on `PersonaSchema`; session reply locale tightened to `vi|en`.
  */
-export const CONTRACTS_VERSION = "0.2.0" as const;
+export const CONTRACTS_VERSION = "0.3.0" as const;
 
 export * from "./error-codes.js";
 export * from "./common.js";
@@ -23,3 +25,4 @@ export * from "./turns-ws.js";
 export * from "./memory.js";
 export * from "./history.js";
 export * from "./health.js";
+export * from "./voice.js";

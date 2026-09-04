@@ -137,9 +137,6 @@ export class MemoryService {
           active: true,
         },
       });
-      this.logger.log(
-        `memory.extract ok sessionId=${input.sessionId} turnId=${input.sourceTurnId}`,
-      );
     } catch (err) {
       this.logger.warn(
         `memory.extract failed sessionId=${input.sessionId}: ${

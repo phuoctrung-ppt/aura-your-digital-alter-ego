@@ -389,10 +389,25 @@ export class AiOrchestratorService {
     }
 
     // 4) TTS — chunked when emitter provided; otherwise single synthesize.
-    const locale = clientLocale ?? session.locale;
+    // Prefer user's selected voice if available, otherwise fallback to persona's locale voice.
+    const locale = session.locale;
+    const ttsLocale = clientLocale ?? session.locale;
+
+    // 1. Resolve the voice ID: User preference -> Persona locale default -> Fallback
+    const voice = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { selectedVoiceId: true },
+    }).then(user => user?.selectedVoiceId)
+      ?? this.sessions.resolveTtsVoiceId(
+        session.persona.voiceByLocale,
+        locale,
+        session.persona.slug,
+      );
+
     const tts = await this.runTtsPossiblyChunked({
       text: assistantText,
-      locale,
+      locale: ttsLocale,
+      voice,
       sessionId,
       onTtsChunk,
     });
@@ -494,6 +509,8 @@ export class AiOrchestratorService {
   private async runTtsPossiblyChunked(args: {
     text: string;
     locale?: string;
+    /** Persona voiceByLocale[session.locale].providerVoiceId when present. */
+    voice?: string;
     sessionId: string;
     onTtsChunk?: FinalizeVoiceTurnInput["onTtsChunk"];
   }): Promise<{
@@ -506,6 +523,7 @@ export class AiOrchestratorService {
       return this.runTtsWithFallback({
         text: args.text,
         locale: args.locale,
+        voice: args.voice,
         sessionId: args.sessionId,
       });
     }
@@ -524,6 +542,7 @@ export class AiOrchestratorService {
       const result = await this.runTtsWithFallback({
         text: phrase,
         locale: args.locale,
+        voice: args.voice,
         sessionId: args.sessionId,
       });
       providerName = result.providerName;
@@ -543,6 +562,7 @@ export class AiOrchestratorService {
       return this.runTtsWithFallback({
         text: " ",
         locale: args.locale,
+        voice: args.voice,
         sessionId: args.sessionId,
       });
     }
@@ -618,6 +638,8 @@ export class AiOrchestratorService {
   private async runTtsWithFallback(args: {
     text: string;
     locale?: string;
+    /** Optional provider voice id from persona.voiceByLocale. */
+    voice?: string;
     sessionId: string;
   }): Promise<{
     audioUri: string;
@@ -629,6 +651,7 @@ export class AiOrchestratorService {
       return await this.ttsPrimary.synthesize({
         text: args.text,
         locale: args.locale,
+        voice: args.voice,
       });
     } catch (primaryErr) {
       const fallback = this.ttsFallback;
@@ -652,6 +675,7 @@ export class AiOrchestratorService {
         const secondary = await fallback.synthesize({
           text: args.text,
           locale: args.locale,
+          voice: args.voice,
         });
         const providerName =
           secondary.providerName === "gcp-tts" || fallback.name === "gcp-tts"

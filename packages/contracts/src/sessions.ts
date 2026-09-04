@@ -3,8 +3,8 @@ import {
   CursorPageMetaSchema,
   CursorPaginationQuerySchema,
   IsoDateTimeSchema,
-  LocaleSchema,
   PersonaSlugSchema,
+  SessionReplyLocaleSchema,
   SessionStatusSchema,
   UuidSchema,
 } from "./common.js";
@@ -15,7 +15,11 @@ export const SessionSchema = z.object({
   userId: UuidSchema,
   personaSlug: PersonaSlugSchema,
   status: SessionStatusSchema,
-  locale: LocaleSchema,
+  /**
+   * Session reply locale (`vi` | `en`). Always one of the persona's
+   * `supportedLanguages` after create validation (M15).
+   */
+  locale: SessionReplyLocaleSchema,
   startedAt: IsoDateTimeSchema,
   endedAt: IsoDateTimeSchema.nullable(),
   /**
@@ -30,10 +34,24 @@ export type Session = z.infer<typeof SessionSchema>;
 
 // ── Create ────────────────────────────────────────────────────────────────
 
+/**
+ * Create open session.
+ *
+ * - `locale` optional; default `vi` (`DEFAULT_LOCALE`).
+ * - Wire schema allows `vi` | `en` only (`SessionReplyLocaleSchema`).
+ * - **Server must also** reject when `locale ∉ persona.supportedLanguages`
+ *   with `VALIDATION_ERROR` (details may name the unsupported locale).
+ *   Zod alone cannot see the persona catalog — do not rely on this schema
+ *   for membership checks.
+ * - Mid-call language switch is out of scope (M15).
+ */
 export const CreateSessionRequestSchema = z.object({
   personaSlug: PersonaSlugSchema,
-  /** Session locale; default `vi`. */
-  locale: LocaleSchema.optional(),
+  /**
+   * Session reply locale; default `vi`.
+   * Must be ∈ selected persona `supportedLanguages` (server-enforced).
+   */
+  locale: SessionReplyLocaleSchema.optional(),
 });
 
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;

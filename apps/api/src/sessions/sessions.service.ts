@@ -1,22 +1,30 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import {
   DEFAULT_LOCALE,
   ErrorCodes,
+  PersonaLanguageSchema,
+  PersonaVoiceByLocaleSchema,
+  SessionReplyLocaleSchema,
   ok,
   type CreateSessionRequest,
   type CreateSessionResponse,
   type EndSessionResponse,
   type GetSessionResponse,
+  type PersonaLanguage,
   type PersonaSlug,
+  type PersonaVoiceByLocale,
   type Session,
   type SessionListQuery,
   type SessionListResponse,
+  type SessionReplyLocale,
   type SessionStatus,
 } from "@aura/contracts";
+import { z } from "zod";
 import type { Persona, Session as PrismaSession } from "@prisma/client";
 import { AppLogger } from "../common";
 import { PrismaService } from "../prisma/prisma.service";
@@ -32,13 +40,25 @@ type SessionWithPersona = PrismaSession & {
   _count?: { turns: number };
 };
 
-/** Session + persona prompt fields for orchestrator (never expose prompt text on HTTP DTOs). */
+/** Session + persona prompt/voice fields for orchestrator (never expose prompt text on HTTP DTOs). */
 export type SessionOwnedWithPersona = PrismaSession & {
   persona: Pick<
     Persona,
-    "id" | "slug" | "systemPromptText" | "systemPromptVersion" | "name"
+    | "id"
+    | "slug"
+    | "systemPromptText"
+    | "systemPromptVersion"
+    | "name"
+    | "voiceByLocale"
   >;
 };
+
+const SupportedLanguagesJsonSchema = z
+  .array(PersonaLanguageSchema)
+  .min(1)
+  .refine((langs) => new Set(langs).size === langs.length, {
+    message: "supportedLanguages must be unique",
+  });
 
 /**
  * Sessions service — user-scoped session lifecycle (create / list / get / end).
@@ -57,6 +77,7 @@ export class SessionsService {
   /**
    * Create an open session for the authenticated user.
    * Resolves `personaSlug` → `personaId`; default locale `vi`.
+   * Rejects when effective locale ∉ persona.supportedLanguages.
    */
   async create(
     userId: string,
@@ -64,7 +85,7 @@ export class SessionsService {
   ): Promise<CreateSessionResponse> {
     const persona = await this.prisma.persona.findUnique({
       where: { slug: input.personaSlug },
-      select: { id: true, slug: true },
+      select: { id: true, slug: true, supportedLanguages: true },
     });
     if (!persona) {
       // Zod already constrains slug enum; missing row means seed/catalog gap.
@@ -74,21 +95,35 @@ export class SessionsService {
       });
     }
 
+    const supportedLanguages = this.parseSupportedLanguages(
+      persona.slug,
+      persona.supportedLanguages,
+    );
+    const locale: SessionReplyLocale = input.locale ?? DEFAULT_LOCALE;
+    if (!supportedLanguages.includes(locale)) {
+      throw new BadRequestException({
+        code: ErrorCodes.VALIDATION_ERROR,
+        message: "Locale not supported by persona",
+        details: {
+          field: "locale",
+          reason: "LOCALE_UNSUPPORTED",
+          supportedLanguages,
+        },
+      });
+    }
+
     const row = await this.prisma.session.create({
       data: {
         userId,
         personaId: persona.id,
         status: "open",
-        locale: input.locale ?? DEFAULT_LOCALE,
+        locale,
       },
       include: {
         persona: { select: { slug: true } },
       },
     });
 
-    this.logger.log(
-      `session.create userId=${userId} sessionId=${row.id} persona=${persona.slug}`,
-    );
     return ok(this.toSessionDto(row));
   }
 
@@ -176,12 +211,11 @@ export class SessionsService {
       },
     });
 
-    this.logger.log(`session.end userId=${userId} sessionId=${row.id}`);
     return ok(this.toSessionDto(row));
   }
 
   /**
-   * Load a session owned by the user including persona system prompt fields.
+   * Load a session owned by the user including persona system prompt + voice map.
    * Used by turn orchestrator — HTTP DTOs must never include systemPromptText.
    * Missing / other user → 404 SESSION_NOT_FOUND.
    */
@@ -199,6 +233,7 @@ export class SessionsService {
             name: true,
             systemPromptText: true,
             systemPromptVersion: true,
+            voiceByLocale: true,
           },
         },
       },
@@ -210,6 +245,42 @@ export class SessionsService {
       });
     }
     return row;
+  }
+
+  /**
+   * Resolve TTS provider voice id for a session locale from persona.voiceByLocale.
+   * Missing / corrupt map → undefined (caller falls back to provider env default).
+   */
+  resolveTtsVoiceId(
+    voiceByLocale: unknown,
+    locale: string,
+    personaSlug: string,
+  ): string | undefined {
+    const parsed = PersonaVoiceByLocaleSchema.safeParse(voiceByLocale);
+    if (!parsed.success) {
+      this.logger.warn(
+        `persona.voiceByLocale corrupt slug=${personaSlug} locale=${locale}`,
+      );
+      return undefined;
+    }
+
+    const map = parsed.data as PersonaVoiceByLocale;
+    const localeKey = SessionReplyLocaleSchema.safeParse(locale);
+    if (!localeKey.success) {
+      this.logger.warn(
+        `persona.voiceByLocale missing key slug=${personaSlug} locale=${locale}`,
+      );
+      return undefined;
+    }
+
+    const voice = map[localeKey.data];
+    if (!voice?.providerVoiceId) {
+      this.logger.warn(
+        `persona.voiceByLocale missing key slug=${personaSlug} locale=${localeKey.data}`,
+      );
+      return undefined;
+    }
+    return voice.providerVoiceId;
   }
 
   private async findOwned(
@@ -237,12 +308,39 @@ export class SessionsService {
       userId: row.userId,
       personaSlug: row.persona.slug as PersonaSlug,
       status: row.status as SessionStatus,
-      locale: row.locale,
+      locale: this.narrowSessionLocale(row.locale),
       startedAt: row.startedAt.toISOString(),
       endedAt: row.endedAt ? row.endedAt.toISOString() : null,
       // Optional: History row_meta `{turns}` (M9). Present on list when `_count` loaded.
       ...(row._count ? { turnCount: row._count.turns } : {}),
     };
+  }
+
+  private narrowSessionLocale(locale: string): SessionReplyLocale {
+    const parsed = SessionReplyLocaleSchema.safeParse(locale);
+    if (!parsed.success) {
+      // Persisted rows should already be vi|en after M15 create validation.
+      this.logger.warn(`session.locale unexpected value=${locale}`);
+      return DEFAULT_LOCALE;
+    }
+    return parsed.data;
+  }
+
+  private parseSupportedLanguages(
+    personaSlug: string,
+    raw: unknown,
+  ): PersonaLanguage[] {
+    const parsed = SupportedLanguagesJsonSchema.safeParse(raw);
+    if (!parsed.success) {
+      this.logger.error(
+        `persona.supportedLanguages corrupt slug=${personaSlug}`,
+      );
+      throw new InternalServerErrorException({
+        code: ErrorCodes.INTERNAL_ERROR,
+        message: "Persona catalog unavailable",
+      });
+    }
+    return parsed.data;
   }
 
   private encodeCursor(row: { startedAt: Date; id: string }): string {

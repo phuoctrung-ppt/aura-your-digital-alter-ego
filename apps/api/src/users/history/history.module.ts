@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { AiModule } from "../../ai/ai.module";
 import { AuthModule } from "../../auth/auth.module";
 import { HistoryController } from "./history.controller";
@@ -11,7 +11,7 @@ import { HistoryService } from "./history.service";
  * PrismaModule is @Global; AuthModule supplies JwtAuthGuard; AiModule exports AudioStorage.
  */
 @Module({
-  imports: [AuthModule, AiModule],
+  imports: [AuthModule, forwardRef(() => AiModule)],
   controllers: [HistoryController],
   providers: [HistoryService],
   exports: [HistoryService],

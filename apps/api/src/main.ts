@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
-import { HttpEnvelopeExceptionFilter } from "./common";
+import { HttpEnvelopeExceptionFilter, LoggingInterceptor } from "./common";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -20,6 +20,7 @@ async function bootstrap(): Promise<void> {
 
   // Envelope filter — maps exceptions to { data: null, error }.
   app.useGlobalFilters(new HttpEnvelopeExceptionFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
   const nodeEnv = (config.get<string>("NODE_ENV") ?? "development").trim();
   if (nodeEnv === "production") {

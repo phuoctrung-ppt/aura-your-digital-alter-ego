@@ -10,7 +10,7 @@ import { sessionCopy } from "../../../lib/i18n";
 import { stageColors } from "../../../lib/theme";
 import type { SessionUiState } from "../types";
 
-// DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+// DESIGN-GATE: docs/design/2026-09-03-calling-ui.spec.md
 // DESIGN-GATE: asset-pack N/A — product chrome
 // DESIGN-GATE: PTT visual 80 / hit 88 · bottom_center · reduced-motion kills glow/ping
 
