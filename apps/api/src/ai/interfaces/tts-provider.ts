@@ -1,3 +1,4 @@
+
 /**
  * Text-to-speech provider contract (ADR-0003).
  * Primary: local / silent via `TTS_PROVIDER` / `TTS_BASE_URL`.

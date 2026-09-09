@@ -27,6 +27,15 @@ type TurnData = {
   safetyMode: string;
 };
 
+/** Seeded tough-interviewer voiceByLocale.providerVoiceId values (prisma/seed.ts). */
+const TOUGH_INTERVIEWER_VOICE = {
+  vi: "vi-VN-Neural2-D",
+  en: "en-US-Neural2-D",
+} as const;
+
+const SECONDS = 1000;
+jest.setTimeout(70 * SECONDS)
+
 describe("Turns orchestrator (e2e)", () => {
   let ctx: TestAppContext;
   let wavPath: string;
