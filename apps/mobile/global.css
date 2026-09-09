@@ -4,35 +4,113 @@
 
 /**
  * Aura design tokens as CSS variables (NativeWind / web preview).
- * Locked in docs/design/tokens.md — dark MVP default.
+ * Source: docs/design/tokens.md (UI v3 navy + Aura cyan, locked 2026-08-28).
+ * DESIGN-GATE: docs/design/2026-08-28-aura-mobile-ui-v3.spec.md
+ * DESIGN-GATE: asset-pack N/A — product chrome
+ *
+ * ThemeProvider sets NativeWind class mode (`light` | `dark`).
+ * Session stage tokens (--stage-*) are force_dark in both modes.
+ *
+ * Tailwind `tailwind.config.js` maps colors to these vars.
  */
+
+/* Light (default :root when class=light / system light) */
 :root,
-.dark {
-  --bg-app: #0b1220;
-  --bg-elevated: #141c2e;
-  --bg-muted: #1b2538;
-  --bg-overlay: rgba(11, 18, 32, 0.72);
-  --border: #243047;
-  --border-strong: #33415c;
-  --border-focus: #2dd4bf;
+.light {
+  --bg-app: #f4f7fb;
+  --bg-elevated: #ffffff;
+  --bg-muted: #e8eef6;
+  --bg-overlay: rgba(15, 23, 42, 0.45);
+  --border: #d5deea;
+  --border-strong: #b6c3d6;
+  --border-focus: #007a88;
 
-  --text: #f5f7fa;
-  --text-secondary: #a8b3c7;
-  --text-muted: #6b7a94;
-  --text-on-accent: #042f2e;
+  --stage-bg: #040d1a;
+  --stage-elevated: #0a1628;
+  --stage-vignette: rgba(0, 0, 0, 0.45);
+
+  --glass-fill: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-blur-px: 20;
+
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-on-accent: #f0fdfa;
   --text-on-danger: #fef2f2;
+  --text-on-stage: #e8f4f8;
 
-  --accent: #2dd4bf;
-  --accent-pressed: #14b8a6;
-  --accent-muted: rgba(45, 212, 191, 0.16);
+  --accent: #007a88;
+  --accent-pressed: #006b78;
+  --accent-muted: rgba(0, 122, 136, 0.14);
+  --accent-glow: rgba(0, 122, 136, 0.28);
+  --accent-ink: #007a88;
+
+  --persona-tint-interviewer: #007a88;
+  --persona-tint-buddy: #7c3aed;
 
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
+  --danger-ink: #b91c1c;
   --info: #38bdf8;
+  --info-ink: #0369a1;
+  --neutral-status: #64748b;
+
+  --waveform-idle: #b6c3d6;
+  --waveform-active: #007a88;
+  --waveform-track: #e8eef6;
+
+  --caption-fill: rgba(0, 0, 0, 0.35);
+  --caption-border: rgba(255, 255, 255, 0.07);
+}
+
+/* Dark chrome + splash default */
+.dark {
+  --bg-app: #040d1a;
+  --bg-elevated: #0a1628;
+  --bg-muted: #0e1f38;
+  --bg-overlay: rgba(4, 13, 26, 0.72);
+  --border: #12233a;
+  --border-strong: #1c3352;
+  --border-focus: #00e5ff;
+
+  --stage-bg: #040d1a;
+  --stage-elevated: #0a1628;
+  --stage-vignette: rgba(0, 0, 0, 0.45);
+
+  --glass-fill: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur-px: 20;
+
+  --text: #e8f4f8;
+  --text-secondary: #a8b3c7;
+  --text-muted: #6b7a94;
+  --text-on-accent: #042f2e;
+  --text-on-danger: #fef2f2;
+  --text-on-stage: #e8f4f8;
+
+  --accent: #00e5ff;
+  --accent-pressed: #00c4dc;
+  --accent-muted: rgba(0, 229, 255, 0.16);
+  --accent-glow: rgba(0, 229, 255, 0.35);
+  --accent-ink: #00e5ff;
+
+  --persona-tint-interviewer: #00e5ff;
+  --persona-tint-buddy: #8b5cf6;
+
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --danger-ink: #f87171;
+  --info: #38bdf8;
+  --info-ink: #38bdf8;
   --neutral-status: #94a3b8;
 
-  --waveform-idle: #33415c;
-  --waveform-active: #2dd4bf;
-  --waveform-track: #1b2538;
+  --waveform-idle: #1c3352;
+  --waveform-active: #00e5ff;
+  --waveform-track: #0e1f38;
+
+  --caption-fill: rgba(0, 0, 0, 0.35);
+  --caption-border: rgba(255, 255, 255, 0.07);
 }

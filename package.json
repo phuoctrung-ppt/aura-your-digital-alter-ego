@@ -8,12 +8,17 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev:api": "pnpm --filter @aura/api start:dev",
+    "dev": "turbo run dev --parallel",
+    "dev:api": "pnpm --filter @aura/api dev",
     "dev:mobile": "pnpm --filter @aura/mobile start",
+    "build": "turbo run build --output-logs=full",
     "build:contracts": "pnpm --filter @aura/contracts build",
     "build:api": "pnpm --filter @aura/api build",
-    "lint": "pnpm -r --if-present run lint",
-    "typecheck": "pnpm -r --if-present run typecheck",
-    "test": "pnpm -r --if-present run test"
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.11"
   }
 }

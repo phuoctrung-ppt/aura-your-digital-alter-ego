@@ -91,9 +91,10 @@ make env-example          # writes ./.env.example from docs/env.example.txt
 | `PORT` | API | Default `3000` |
 | `OLLAMA_BASE_URL` | API | Host: `http://localhost:11434`; in-compose: `http://ollama:11434` |
 | `OLLAMA_CHAT_MODEL` | API | After `make pull-model` |
-| `LLM_FALLBACK_*` | API | Optional cloud chat |
-| `STT_PROVIDER` / `WHISPER_BASE_URL` | API | Whisper not in compose — point at host or future sidecar |
-| `TTS_*` | API | Pluggable TTS |
+| `CHAT_FALLBACK_PROVIDER` / `VERTEX_*` | API | Preferred chat fallback = Vertex (ADC); see guide-gcp/08 |
+| `LLM_FALLBACK_*` | API | Optional OpenAI-compatible chat when `CHAT_FALLBACK_PROVIDER=openai_compatible` |
+| `STT_PROVIDER` / `STT_FALLBACK_PROVIDER` / `WHISPER_BASE_URL` / `GCP_SPEECH_*` / `FFMPEG_PATH` | API | Whisper primary; GCP Speech fallback (`gcp`). Host/API image needs **ffmpeg** when using GCP STT on Expo m4a/AAC uplink (Speech v1 has no AAC encoding) |
+| `TTS_PROVIDER` / `TTS_FALLBACK_PROVIDER` / `TTS_*` / `GCP_TTS_*` | API | Local/silent primary; Cloud TTS fallback (`gcp`) |
 | `AUDIO_STORAGE_PATH` | API | Local filesystem for turn blobs |
 | `EXPO_PUBLIC_API_URL` | Mobile | e.g. `http://localhost:3000` (device may need LAN IP) |
 

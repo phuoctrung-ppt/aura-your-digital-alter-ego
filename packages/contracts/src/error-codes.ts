@@ -25,13 +25,27 @@ export const ErrorCodeSchema = z.enum([
   "SESSION_NOT_FOUND",
   "SESSION_CLOSED",
 
-  // Turn / audio (SP-3)
+  // Turn / audio (SP-3 REST multipart — also reused on WS when semantics match)
   "AUDIO_MISSING",
   "AUDIO_TOO_LARGE",
   "AUDIO_UNSUPPORTED_MIME",
   "AUDIO_INVALID",
   "TURN_TIMEOUT",
   "PROVIDER_UNAVAILABLE",
+
+  /**
+   * WebSocket / Socket.IO voice path (M7.5 / ADR-0005).
+   * Prefer reusing UNAUTHORIZED, SESSION_NOT_FOUND, SESSION_CLOSED,
+   * RATE_LIMITED, AUDIO_INVALID, AUDIO_TOO_LARGE, TURN_TIMEOUT,
+   * PROVIDER_UNAVAILABLE when the failure matches REST semantics.
+   * Use the WS_* codes below only when the failure is socket/stream-specific.
+   */
+  "WS_UNAUTHORIZED",
+  "WS_TURN_IN_PROGRESS",
+  "WS_TURN_NOT_FOUND",
+  "WS_AUDIO_INVALID",
+  "WS_STREAM_FAILED",
+  "WS_RATE_LIMITED",
 ]);
 
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;

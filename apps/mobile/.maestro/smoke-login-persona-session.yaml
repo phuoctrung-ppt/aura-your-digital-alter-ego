@@ -1,0 +1,40 @@
+# Maestro smoke — login → 2 personas → session → mock PTT path (T-M12-02)
+#
+# Prerequisites:
+# - App running with EXPO_PUBLIC_API_MOCK=1 (see .maestro/README.md)
+# - Simulator / emulator attached
+#
+# Prefer stable testIDs; VN product copy remains as fallback assertions.
+# Do not assert crisis / transcript content here.
+
+appId: app.aura.mobile
+---
+- launchApp:
+    clearState: true
+
+# --- Auth (mock login — no live backend) ---
+- tapOn:
+    id: "login-email"
+- inputText: "maestro-smoke@example.com"
+- tapOn:
+    id: "login-password"
+- inputText: "SmokeTest1!"
+- tapOn:
+    id: "login-submit"
+
+# --- Home: two MVP personas ---
+- assertVisible: "Người phỏng vấn khắt khe"
+- assertVisible: "Bạn bản xứ"
+- assertVisible:
+    id: "persona-tough-interviewer"
+- assertVisible:
+    id: "persona-native-buddy"
+
+# --- Open session (Tough Interviewer) ---
+- tapOn:
+    id: "persona-tough-interviewer"
+
+# --- Session presence + PTT affordance ---
+- assertVisible: "Giữ để nói"
+- assertVisible:
+    id: "ptt-button"

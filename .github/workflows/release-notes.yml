@@ -18,11 +18,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22.x"
+          cache: npm
+          cache-dependency-path: my-release-notes/package-lock.json # Đường dẫn tới thư mục chứa code docusaurus
 
       - name: Install dependencies & Build
         run: |
           cd my-release-notes
-          npm install
+          npm ci
           npm run build
 
       - name: Deploy to GitHub Pages

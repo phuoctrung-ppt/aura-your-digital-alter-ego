@@ -22,7 +22,9 @@ FROM node:${NODE_VERSION} AS base
 ARG PNPM_VERSION
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-RUN npm install -g pnpm@${PNPM_VERSION}
+# ffmpeg: decode Expo HIGH_QUALITY m4a/AAC → LINEAR16 for Cloud Speech (SP-3/SP-4)
+RUN apk add --no-cache ffmpeg \
+  && npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
 
 # ── deps ─────────────────────────────────────────────────────────────────────
@@ -45,7 +47,10 @@ COPY tsconfig.base.json ./
 COPY packages/contracts ./packages/contracts
 COPY packages/config ./packages/config
 COPY apps/api ./apps/api
+# Fresh installs leave @prisma/client as a stub until generate runs.
+# Must precede API build (see docs/memory/gotchas.md).
 RUN pnpm --filter @aura/contracts build \
+  && pnpm --filter @aura/api prisma:generate \
   && pnpm --filter @aura/api build
 
 # pnpm v10+ deploy requires injected workspace packages OR --legacy.
@@ -63,8 +68,9 @@ COPY tsconfig.base.json ./
 COPY packages/contracts ./packages/contracts
 COPY packages/config ./packages/config
 COPY apps/api ./apps/api
-# Build contracts once so @aura/contracts resolves at start; nest --watch reloads API
-RUN pnpm --filter @aura/contracts build
+# Build contracts + generate Prisma client so @aura/api can compile under nest --watch
+RUN pnpm --filter @aura/contracts build \
+  && pnpm --filter @aura/api prisma:generate
 EXPOSE 3000
 WORKDIR /app
 CMD ["pnpm", "--filter", "@aura/api", "start:dev"]
@@ -73,6 +79,8 @@ CMD ["pnpm", "--filter", "@aura/api", "start:dev"]
 FROM node:${NODE_VERSION} AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
+# Same ffmpeg need as base/dev — runner does not inherit base packages.
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs \
